@@ -133,9 +133,10 @@
     /**
      * --- Part 5-8: 状態管理、保存、描画、編集 (既出) ---
      */
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz-34ZuS_t6RyUQSsZ2laXs5ueBZtvZ8WwWoIYVw2NfVTq0PFoI8MfOD-5N6T1_5eT1/exec'; 
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/u/2/s/AKfycbz-34ZuS_t6RyUQSsZ2laXs5ueBZtvZ8WwWoIYVw2NfVTq0PFoI8MfOD-5N6T1_5eT1/exec';
     let state = { logs: {}, todos: [], collapsedHours: {}, currentDateStr: "" };
     let isDirty = false; let syncTimer = null; let saveTimeout = null; let lastDeleted = null;
+    let isFetching = false; // GAS受信中フラグ（saveToLocal競合防止）
 
     async function initData() {
       const saved = localStorage.getItem('zl_logger_state');
@@ -183,6 +184,7 @@
     }
 
     function saveToLocal() {
+      if (isFetching) return; // GAS受信中は上書きしない
       localStorage.setItem('zl_logger_state', JSON.stringify(state));
       isDirty = false; document.getElementById('sync-status').textContent = "保存済み";
       triggerGASSync();
@@ -214,12 +216,19 @@
         const result = await response.json();
         
         if (result.status === 'success' && result.data) {
-          // 新しいデータでローカルの state を上書き
-          if (result.data.logs) {
-            state.logs = migrateData(result.data.logs);
-          }
-          if (result.data.todos) {
-            state.todos = result.data.todos;
+          // migrateData() はログオブジェクト全体ではなく logs プロパティを期待するため、
+          // result.data.logs だけを直接渡すのは正しい（index.html版のmigrateDataはlogsのみ受け取る設計）
+          // ただし受信中フラグを立てて saveToLocal との競合を防ぐ
+          isFetching = true;
+          try {
+            if (result.data.logs) {
+              state.logs = migrateData(result.data.logs);
+            }
+            if (result.data.todos) {
+              state.todos = result.data.todos;
+            }
+          } finally {
+            isFetching = false;
           }
           
           // ローカルストレージを更新して再描画
