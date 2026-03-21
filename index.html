@@ -133,7 +133,7 @@
     /**
      * --- Part 5-8: 状態管理、保存、描画、編集 (既出) ---
      */
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/u/2/s/AKfycbz-34ZuS_t6RyUQSsZ2laXs5ueBZtvZ8WwWoIYVw2NfVTq0PFoI8MfOD-5N6T1_5eT1/exec';
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz-34ZuS_t6RyUQSsZ2laXs5ueBZtvZ8WwWoIYVw2NfVTq0PFoI8MfOD-5N6T1_5eT1/exec';
     let state = { logs: {}, todos: [], collapsedHours: {}, currentDateStr: "" };
     let isDirty = false; let syncTimer = null; let saveTimeout = null; let lastDeleted = null;
     let isFetching = false; // GAS受信中フラグ（saveToLocal競合防止）
