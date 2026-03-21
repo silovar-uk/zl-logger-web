@@ -149,6 +149,9 @@
       }
       state.currentDateStr = getTodayStr();
       renderAll();
+
+      // クラウドから最新データを非同期で取得
+      fetchCloudData();
     }
 
     function migrateData(logs) {
@@ -192,11 +195,44 @@
         try {
           await fetch(GAS_WEB_APP_URL, {
             method: 'POST', mode: 'no-cors',
-            body: JSON.stringify({ action: "FULL_SYNC", data: { logs: state.logs, todos: state.todos } })
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: "SYNC_FULL_STATE", data: { logs: state.logs, todos: state.todos } })
           });
           document.getElementById('sync-status').textContent = "クラウド同期済み";
         } catch (e) { document.getElementById('sync-status').textContent = "同期失敗"; }
       }, 2000);
+    }
+
+    /**
+     * クラウド(GAS)から最新のデータを取得し、画面を更新する
+     */
+    async function fetchCloudData() {
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('YOUR_GAS')) return;
+      document.getElementById('sync-status').textContent = "クラウド受信中...";
+      try {
+        const response = await fetch(GAS_WEB_APP_URL);
+        const result = await response.json();
+        
+        if (result.status === 'success' && result.data) {
+          // 新しいデータでローカルの state を上書き
+          if (result.data.logs) {
+            state.logs = migrateData(result.data.logs);
+          }
+          if (result.data.todos) {
+            state.todos = result.data.todos;
+          }
+          
+          // ローカルストレージを更新して再描画
+          localStorage.setItem('zl_logger_state', JSON.stringify(state));
+          renderAll();
+          document.getElementById('sync-status').textContent = "同期完了";
+        } else {
+          document.getElementById('sync-status').textContent = "受信エラー";
+        }
+      } catch (e) {
+        console.error("Fetch error:", e);
+        document.getElementById('sync-status').textContent = "オフライン";
+      }
     }
 
     function renderAll() { renderCalendar(); renderDailyLog(); renderTodoList(); renderHourSelector(); }
