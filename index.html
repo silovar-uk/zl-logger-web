@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <!-- 
+    PWA / Mobile Meta Tags 
+  -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ZL-Logger">
+  <meta name="theme-color" content="#000000">
+  
+  <title>Zero-Latency Logger (PWA)</title>
+  
+  <style>
+    /**
+     * Design System Tokens
+     */
+    :root {
+      --bg-base: #fafaf9; --bg-surface: #ffffff; --text-main: #44403c;
+      --text-muted: #a8a29e; --border-color: #e7e5e4; --accent-color: #0ea5e9; --danger-color: #ef4444;
+      --safe-area-top: env(safe-area-inset-top);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg-base: #000000; --bg-surface: #111111; --text-main: #e7e5e4; --text-muted: #78716c; --border-color: #292524; --accent-color: #38bdf8; --danger-color: #f87171; }
+    }
+
+    /* Base Layout */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: var(--bg-base); color: var(--text-main); height: 100dvh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; line-height: 1.5; }
+
+    /* UI Components Style */
+    .app-header { flex-shrink: 0; background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 100; padding-top: var(--safe-area-top); }
+    .header-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; }
+    .logo-container { display: flex; align-items: baseline; gap: 8px; }
+    .logo { font-weight: 800; font-size: 16px; letter-spacing: -0.025em; }
+    #sync-status { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+    .calendar-ribbon-container { display: flex; align-items: center; background-color: var(--bg-base); border-top: 1px solid var(--border-color); padding: 4px; }
+    .ribbon-btn { background: none; border: none; color: var(--text-muted); padding: 8px; font-size: 20px; cursor: pointer; }
+    .calendar-ribbon { flex: 1; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 4px 0; scroll-snap-type: x mandatory; }
+    .calendar-ribbon::-webkit-scrollbar { display: none; }
+    .date-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 52px; padding: 8px 4px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; scroll-snap-align: center; }
+    .date-item.active { background-color: var(--bg-surface); box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid var(--accent-color); }
+    .date-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+    .date-num { font-size: 16px; font-weight: 700; margin-top: 2px; }
+    .activity-dots { display: flex; gap: 2px; margin-top: 4px; }
+    .dot { width: 4px; height: 4px; border-radius: 50%; background-color: var(--border-color); }
+    .dot.level-1 { background-color: var(--accent-color); opacity: 0.3; }
+    .dot.level-2 { background-color: var(--accent-color); opacity: 0.6; }
+    .dot.level-3 { background-color: var(--accent-color); opacity: 1; }
+
+    /* Timeline & Input Pad Style */
+    .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+    .timeline { position: relative; padding-left: 24px; margin-left: 12px; border-left: 2px solid var(--border-color); margin-top: 16px; }
+    .timeline-item { position: relative; margin-bottom: 24px; }
+    .timeline-item.collapsed .time-body { display: none; }
+    .timeline-dot { position: absolute; left: -30px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent-color); border: 2px solid var(--bg-base); }
+    .timeline-item.collapsed .timeline-dot { background-color: var(--text-muted); }
+    .time-header { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px; }
+    .time-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; }
+    .entry-item { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; margin-bottom: 6px; color: var(--text-main); }
+    .entry-item::before { content: "•"; color: var(--text-muted); font-weight: bold; flex-shrink: 0; }
+    .entry-text { flex: 1; word-break: break-word; min-height: 1.5em; outline: none; }
+    .input-pad { width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px; background-color: var(--bg-surface); border: 1px solid var(--border-color); font-size: 15px; color: var(--text-main); outline: none; resize: none; transition: all 0.2s ease; margin-top: 8px; }
+    .input-pad:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+    .hour-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 16px; }
+    .hour-chip { padding: 10px 0; text-align: center; border-radius: 8px; font-size: 12px; font-weight: 600; background-color: var(--bg-surface); border: 1px solid var(--border-color); cursor: pointer; color: var(--text-main); }
+    .hour-chip.has-content { border-color: var(--accent-color); color: var(--accent-color); }
+    .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-surface); }
+    .todo-item.done { opacity: 0.5; }
+    .todo-item.done .todo-text { text-decoration: line-through; color: var(--text-muted); }
+
+    /* Utility Styles */
+    .pane-header { padding: 12px 16px; font-size: 12px; font-weight: 800; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; color: var(--text-muted); text-transform: uppercase; }
+    .action-btn { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; font-size: 11px; font-weight: 600; padding: 6px 10px; cursor: pointer; color: var(--text-main); }
+    .action-btn.primary { background: var(--accent-color); color: white; border: none; }
+    .hidden { display: none !important; }
+
+    #undo-snackbar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--bg-surface); border: 1px solid var(--border-color); padding: 12px 20px; border-radius: 30px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); display: flex; gap: 16px; align-items: center; z-index: 1000; }
+    #undo-snackbar.show { transform: translateX(-50%) translateY(0); }
+    #btn-undo { color: var(--accent-color); font-weight: 700; border: none; background: none; cursor: pointer; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-top">
+      <div class="logo-container">
+        <div class="logo">Zero-Latency Logger</div>
+        <span id="sync-status">初期化中...</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="action-btn" id="btn-add-past">＋ 過去の記録</button>
+        <button class="action-btn" id="btn-copy-output">📋 出力</button>
+      </div>
+    </div>
+    
+    <div class="calendar-ribbon-container">
+      <button class="ribbon-btn" id="btn-cal-prev">‹</button>
+      <div class="calendar-ribbon" id="calendar-ribbon"></div>
+      <button class="ribbon-btn" id="btn-cal-next">›</button>
+    </div>
+  </header>
+
+  <main class="main-container" id="main-container">
+    <div id="hour-selector" class="hidden">
+      <div class="pane-header">SELECT HOUR</div>
+      <div id="hour-grid" class="hour-grid"></div>
+    </div>
+
+    <section class="pane">
+      <div class="pane-header">DAILY LOG</div>
+      <div id="log-content" style="padding: 0 16px 32px 16px;"></div>
+    </section>
+
+    <section class="pane" style="border-top: 8px solid var(--bg-base);">
+      <div class="pane-header">
+        <span>TODO INBOX</span>
+        <button class="action-btn primary" id="btn-add-todo">＋ TODO追加</button>
+      </div>
+      <div id="todo-content"></div>
+    </section>
+  </main>
+
+  <div id="undo-snackbar">
+    <span id="undo-message" style="font-size: 13px; font-weight: 500;">削除しました</span>
+    <button id="btn-undo">元に戻す</button>
+  </div>
+
+  <script>
+    /**
+     * --- Part 5-8: 状態管理、保存、描画、編集 (既出) ---
+     */
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz-34ZuS_t6RyUQSsZ2laXs5ueBZtvZ8WwWoIYVw2NfVTq0PFoI8MfOD-5N6T1_5eT1/exec'; 
+    let state = { logs: {}, todos: [], collapsedHours: {}, currentDateStr: "" };
+    let isDirty = false; let syncTimer = null; let saveTimeout = null; let lastDeleted = null;
+
+    async function initData() {
+      const saved = localStorage.getItem('zl_logger_state');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          state.logs = migrateData(parsed.logs || {});
+          state.todos = Array.isArray(parsed.todos) ? parsed.todos : [];
+          state.collapsedHours = parsed.collapsedHours || {};
+        } catch (e) { console.error("Failed to load state", e); }
+      }
+      state.currentDateStr = getTodayStr();
+      renderAll();
+    }
+
+    function migrateData(logs) {
+      const newLogs = {};
+      for (const date in logs) {
+        newLogs[date] = {};
+        for (const hour in logs[date]) {
+          const content = logs[date][hour];
+          if (typeof content === 'string') {
+            newLogs[date][hour] = content.split('\n').filter(t => t.trim()).map(text => ({
+              id: 'mig_' + Math.random().toString(36).substr(2, 9),
+              text: text.replace(/^-\s*/, ''), depth: 0, updatedAt: Date.now()
+            }));
+          } else { newLogs[date][hour] = content; }
+        }
+      }
+      return newLogs;
+    }
+
+    function getTodayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function scheduleSave() {
+      isDirty = true; document.getElementById('sync-status').textContent = "変更あり...";
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => saveToLocal(), 1000);
+    }
+
+    function saveToLocal() {
+      localStorage.setItem('zl_logger_state', JSON.stringify(state));
+      isDirty = false; document.getElementById('sync-status').textContent = "保存済み";
+      triggerGASSync();
+    }
+
+    async function triggerGASSync() {
+      if (!GAS_WEB_APP_URL) return;
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(async () => {
+        try {
+          await fetch(GAS_WEB_APP_URL, {
+            method: 'POST', mode: 'no-cors',
+            body: JSON.stringify({ action: "FULL_SYNC", data: { logs: state.logs, todos: state.todos } })
+          });
+          document.getElementById('sync-status').textContent = "クラウド同期済み";
+        } catch (e) { document.getElementById('sync-status').textContent = "同期失敗"; }
+      }, 2000);
+    }
+
+    function renderAll() { renderCalendar(); renderDailyLog(); renderTodoList(); renderHourSelector(); }
+
+    function renderCalendar() {
+      const ribbon = document.getElementById('calendar-ribbon');
+      ribbon.innerHTML = '';
+      const center = new Date(state.currentDateStr);
+      for (let i = -7; i <= 7; i++) {
+        const d = new Date(center); d.setDate(d.getDate() + i);
+        const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const item = document.createElement('div');
+        item.className = `date-item ${dStr === state.currentDateStr ? 'active' : ''}`;
+        item.onclick = () => { state.currentDateStr = dStr; renderAll(); };
+        const dayLabels = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        item.innerHTML = `
+          <div class="date-label">${dayLabels[d.getDay()]}</div>
+          <div class="date-num">${d.getDate()}</div>
+          <div class="activity-dots">${getActivityDots(dStr)}</div>
+        `;
+        ribbon.appendChild(item);
+        if (dStr === state.currentDateStr) {
+          setTimeout(() => item.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }), 100);
+        }
+      }
+    }
+
+    function getActivityDots(dateStr) {
+      const dayLogs = state.logs[dateStr] || {};
+      let count = 0; Object.values(dayLogs).forEach(h => count += h.length);
+      if (count === 0) return '';
+      const level = count > 8 ? 3 : count > 4 ? 2 : 1;
+      let dotsHtml = ''; for(let i=0; i<level; i++) dotsHtml += `<div class="dot level-${level}"></div>`;
+      return dotsHtml;
+    }
+
+    function renderDailyLog() {
+      const container = document.getElementById('log-content');
+      container.innerHTML = '';
+      const dayLogs = state.logs[state.currentDateStr] || {};
+      const nowHour = new Date().getHours();
+      const timeline = document.createElement('div');
+      timeline.className = 'timeline';
+
+      for (let h = 0; h < 24; h++) {
+        const entries = dayLogs[h] || [];
+        const isNow = (h === nowHour && state.currentDateStr === getTodayStr());
+        const isCollapsed = state.collapsedHours[`${state.currentDateStr}-${h}`] ?? true;
+        if (entries.length === 0 && !isNow) continue;
+
+        const section = document.createElement('div');
+        section.className = `timeline-item ${isCollapsed && !isNow ? 'collapsed' : ''}`;
+        let entriesHtml = entries.map((e, idx) => `
+          <div class="entry-item">
+            <div class="entry-text" contenteditable="true" 
+                 onblur="updateEntryText('${state.currentDateStr}', ${h}, ${idx}, this.innerText)">${e.text}</div>
+          </div>
+        `).join('');
+
+        section.innerHTML = `
+          <div class="timeline-dot"></div>
+          <div class="time-header" onclick="toggleHour('${h}')">
+            <span class="time-label">${String(h).padStart(2,'0')}:00</span>
+            ${isNow ? '<span style="font-size:9px; color:var(--accent-color); font-weight:800;">NOW</span>' : ''}
+          </div>
+          <div class="time-body">
+            ${entriesHtml}
+            ${isNow || !isCollapsed ? `
+              <textarea class="input-pad" placeholder="なにか書く... (Enterで追加)" 
+                        onkeydown="handleLogInput(event, ${h})"></textarea>
+            ` : ''}
+          </div>
+        `;
+        timeline.appendChild(section);
+      }
+      container.appendChild(timeline);
+    }
+
+    function handleLogInput(e, hour) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = e.target.value.trim();
+        if (!text) return;
+        if (!state.logs[state.currentDateStr]) state.logs[state.currentDateStr] = {};
+        if (!state.logs[state.currentDateStr][hour]) state.logs[state.currentDateStr][hour] = [];
+        state.logs[state.currentDateStr][hour].push({ id: 'log_' + Date.now(), text: text, depth: 0, updatedAt: Date.now() });
+        e.target.value = ''; scheduleSave(); renderDailyLog();
+        setTimeout(() => { const pads = document.querySelectorAll('.input-pad'); pads[pads.length - 1]?.focus(); }, 10);
+      }
+    }
+
+    function updateEntryText(date, hour, idx, newText) {
+      const entry = state.logs[date]?.[hour]?.[idx];
+      if (!entry) return;
+      const cleanText = newText.trim();
+      if (cleanText === entry.text) return;
+      if (cleanText === "") { state.logs[date][hour].splice(idx, 1); } 
+      else { entry.text = cleanText; entry.updatedAt = Date.now(); }
+      scheduleSave(); renderAll();
+    }
+
+    function toggleHour(hour) {
+      const key = `${state.currentDateStr}-${hour}`;
+      state.collapsedHours[key] = !(state.collapsedHours[key] ?? true);
+      renderDailyLog();
+    }
+
+    function renderHourSelector() {
+      const grid = document.getElementById('hour-grid');
+      grid.innerHTML = '';
+      const dayLogs = state.logs[state.currentDateStr] || {};
+      for (let h = 0; h < 24; h++) {
+        const chip = document.createElement('div');
+        chip.className = `hour-chip ${dayLogs[h]?.length > 0 ? 'has-content' : ''}`;
+        chip.textContent = `${h}:00`;
+        chip.onclick = () => {
+          state.collapsedHours[`${state.currentDateStr}-${h}`] = false;
+          document.getElementById('hour-selector').classList.add('hidden');
+          renderDailyLog();
+          setTimeout(() => { document.querySelectorAll('.input-pad').forEach(p => { if (p.closest('.timeline-item').querySelector('.time-label').textContent === `${String(h).padStart(2,'0')}:00`) { p.scrollIntoView({behavior:'smooth',block:'center'}); p.focus(); } }); }, 100);
+        };
+        grid.appendChild(chip);
+      }
+    }
+
+    /**
+     * --- Part 9: TODO管理と最終初期化 ---
+     */
+
+    /**
+     * TODOリストの描画
+     */
+    function renderTodoList() {
+      const container = document.getElementById('todo-content');
+      container.innerHTML = '';
+      
+      // 未完了を上に、完了済みを下にソート
+      const sortedTodos = [...state.todos].sort((a, b) => {
+        if (a.status === b.status) return b.updatedAt - a.updatedAt;
+        return a.status === 'DONE' ? 1 : -1;
+      });
+
+      if (sortedTodos.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted); font-size:12px;">タスクはありません</div>';
+        return;
+      }
+
+      sortedTodos.forEach((todo, idx) => {
+        const item = document.createElement('div');
+        item.className = `todo-item ${todo.status === 'DONE' ? 'done' : ''}`;
+        item.innerHTML = `
+          <input type="checkbox" ${todo.status === 'DONE' ? 'checked' : ''} 
+                 onchange="toggleTodo('${todo.id}')" style="margin-top:4px;">
+          <div class="todo-text" contenteditable="true" style="flex:1; outline:none;"
+               onblur="updateTodoText('${todo.id}', this.innerText)">${todo.text}</div>
+          <button onclick="deleteTodo('${todo.id}')" style="background:none; border:none; color:var(--danger-color); font-size:16px; cursor:pointer; opacity:0.3;">×</button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function toggleTodo(id) {
+      const todo = state.todos.find(t => t.id === id);
+      if (todo) {
+        todo.status = todo.status === 'DONE' ? 'ACTIVE' : 'DONE';
+        todo.updatedAt = Date.now();
+        scheduleSave(); renderTodoList();
+      }
+    }
+
+    function updateTodoText(id, text) {
+      const todo = state.todos.find(t => t.id === id);
+      if (todo && todo.text !== text.trim()) {
+        todo.text = text.trim();
+        todo.updatedAt = Date.now();
+        scheduleSave();
+      }
+    }
+
+    function deleteTodo(id) {
+      const idx = state.todos.findIndex(t => t.id === id);
+      if (idx !== -1) {
+        lastDeleted = { type: 'todo', data: state.todos[idx], index: idx };
+        state.todos.splice(idx, 1);
+        scheduleSave(); renderTodoList();
+        showUndo("TODOを削除しました");
+      }
+    }
+
+    function showUndo(msg) {
+      const bar = document.getElementById('undo-snackbar');
+      document.getElementById('undo-message').textContent = msg;
+      bar.classList.add('show');
+      setTimeout(() => bar.classList.remove('show'), 5000);
+    }
+
+    /**
+     * 日付移動
+     */
+    function moveDate(offset) {
+      const d = new Date(state.currentDateStr);
+      d.setDate(d.getDate() + offset);
+      state.currentDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      renderAll();
+    }
+
+    /**
+     * クリップボード出力
+     */
+    function copyOutput() {
+      const logs = state.logs[state.currentDateStr] || {};
+      let text = `■ ${state.currentDateStr} の日誌\n\n`;
+      let hasContent = false;
+      for (let h = 0; h < 24; h++) {
+        if (logs[h] && logs[h].length > 0) {
+          hasContent = true;
+          text += `[${h}:00]\n`;
+          logs[h].forEach(e => text += `- ${e.text}\n`);
+          text += `\n`;
+        }
+      }
+      if (!hasContent) text += "記録はありません。";
+
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        document.getElementById('btn-copy-output').textContent = "✓ コピー完了";
+        setTimeout(() => document.getElementById('btn-copy-output').textContent = "📋 出力", 2000);
+      } catch (err) { console.error("Copy failed", err); }
+      document.body.removeChild(textArea);
+    }
+
+    // イベントリスナー登録
+    document.addEventListener('DOMContentLoaded', () => {
+      initData();
+      document.getElementById('btn-cal-prev').onclick = () => moveDate(-1);
+      document.getElementById('btn-cal-next').onclick = () => moveDate(1);
+      document.getElementById('btn-add-past').onclick = () => document.getElementById('hour-selector').classList.toggle('hidden');
+      document.getElementById('btn-copy-output').onclick = copyOutput;
+      document.getElementById('btn-add-todo').onclick = () => {
+        state.todos.unshift({ id: 'todo_' + Date.now(), text: '', status: 'ACTIVE', depth: 0, updatedAt: Date.now() });
+        renderTodoList();
+        document.querySelector('.todo-text')?.focus();
+      };
+      document.getElementById('btn-undo').onclick = () => {
+        if (lastDeleted && lastDeleted.type === 'todo') {
+          state.todos.splice(lastDeleted.index, 0, lastDeleted.data);
+          lastDeleted = null;
+          renderTodoList(); scheduleSave();
+          document.getElementById('undo-snackbar').classList.remove('show');
+        }
+      };
+    });
+  </script>
+</body>
+</html>
