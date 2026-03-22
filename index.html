@@ -543,6 +543,14 @@
           document.getElementById('undo-snackbar').classList.remove('show');
         }
       };
+
+      // 定期的なクラウド同期（30秒ごと）
+      // 編集中でない場合のみGASからデータを取得してマージする
+      setInterval(() => {
+        if (!isDirty) {
+          fetchCloudData();
+        }
+      }, 30000);
     });
   </script>
 </body>
