@@ -206,7 +206,56 @@
     }
 
     /**
-     * クラウド(GAS)から最新のデータを取得し、画面を更新する
+     * GASから受信したログとローカルログをマージ
+     * - 両方にあるエントリ（text+depth一致）→ updatedAtが新しい方を採用
+     * - 片方にしかないエントリ → 追加
+     */
+    function mergeLogs(localLogs, cloudLogs) {
+      const merged = JSON.parse(JSON.stringify(localLogs));
+      Object.keys(cloudLogs).forEach(date => {
+        if (!merged[date]) merged[date] = {};
+        Object.keys(cloudLogs[date]).forEach(hour => {
+          const cloudEntries = cloudLogs[date][hour] || [];
+          const localEntries = merged[date][hour] || [];
+          cloudEntries.forEach(cloudEntry => {
+            const localMatch = localEntries.find(
+              l => l.text === cloudEntry.text && l.depth === cloudEntry.depth
+            );
+            if (localMatch) {
+              if (cloudEntry.updatedAt > localMatch.updatedAt) {
+                localMatch.updatedAt = cloudEntry.updatedAt;
+              }
+            } else {
+              localEntries.push(cloudEntry);
+            }
+          });
+          merged[date][hour] = localEntries.sort((a, b) => a.updatedAt - b.updatedAt);
+        });
+      });
+      return merged;
+    }
+
+    /**
+     * GASから受信したTODOとローカルTODOをマージ
+     */
+    function mergeTodos(localTodos, cloudTodos) {
+      const merged = JSON.parse(JSON.stringify(localTodos));
+      cloudTodos.forEach(cloudTodo => {
+        const localMatch = merged.find(l => l.id === cloudTodo.id);
+        if (localMatch) {
+          if (cloudTodo.updatedAt > localMatch.updatedAt) {
+            Object.assign(localMatch, cloudTodo);
+          }
+        } else {
+          const textMatch = merged.find(l => l.text === cloudTodo.text);
+          if (!textMatch) merged.push(cloudTodo);
+        }
+      });
+      return merged;
+    }
+
+    /**
+     * クラウド(GAS)から最新のデータを取得し、ローカルとマージして更新する
      */
     async function fetchCloudData() {
       if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('YOUR_GAS')) return;
@@ -216,24 +265,21 @@
         const result = await response.json();
         
         if (result.status === 'success' && result.data) {
-          // migrateData() はログオブジェクト全体ではなく logs プロパティを期待するため、
-          // result.data.logs だけを直接渡すのは正しい（index.html版のmigrateDataはlogsのみ受け取る設計）
-          // ただし受信中フラグを立てて saveToLocal との競合を防ぐ
           isFetching = true;
           try {
-            if (result.data.logs) {
-              state.logs = migrateData(result.data.logs);
-            }
-            if (result.data.todos) {
-              state.todos = result.data.todos;
-            }
+            // クラウドデータを正規化してからマージ
+            const cloudLogs = migrateData(result.data.logs || {});
+            const cloudTodos = result.data.todos || [];
+            state.logs = mergeLogs(state.logs, cloudLogs);
+            state.todos = mergeTodos(state.todos, cloudTodos);
           } finally {
             isFetching = false;
           }
-          
-          // ローカルストレージを更新して再描画
+
+          // マージ結果を保存・描画・GASへ送り返す
           localStorage.setItem('zl_logger_state', JSON.stringify(state));
           renderAll();
+          triggerGASSync();
           document.getElementById('sync-status').textContent = "同期完了";
         } else {
           document.getElementById('sync-status').textContent = "受信エラー";
