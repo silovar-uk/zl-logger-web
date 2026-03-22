@@ -276,10 +276,9 @@
             isFetching = false;
           }
 
-          // マージ結果を保存・描画・GASへ送り返す
+          // マージ結果を保存・描画
           localStorage.setItem('zl_logger_state', JSON.stringify(state));
           renderAll();
-          triggerGASSync();
           document.getElementById('sync-status').textContent = "同期完了";
         } else {
           document.getElementById('sync-status').textContent = "受信エラー";
