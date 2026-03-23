@@ -52,7 +52,7 @@
     .dot.level-3 { background-color: var(--accent-color); opacity: 1; }
 
     /* Timeline & Input Pad Style */
-    .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+    .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding-bottom: 80px; }
     .timeline { position: relative; padding-left: 24px; margin-left: 12px; border-left: 2px solid var(--border-color); margin-top: 16px; }
     .timeline-item { position: relative; margin-bottom: 24px; }
     .timeline-item.collapsed .time-body { display: none; }
@@ -78,9 +78,27 @@
     .action-btn.primary { background: var(--accent-color); color: white; border: none; }
     .hidden { display: none !important; }
 
-    #undo-snackbar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--bg-surface); border: 1px solid var(--border-color); padding: 12px 20px; border-radius: 30px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); display: flex; gap: 16px; align-items: center; z-index: 1000; }
+    #undo-snackbar { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(150px); background: var(--bg-surface); border: 1px solid var(--border-color); padding: 12px 20px; border-radius: 30px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); display: flex; gap: 16px; align-items: center; z-index: 1000; }
     #undo-snackbar.show { transform: translateX(-50%) translateY(0); }
     #btn-undo { color: var(--accent-color); font-weight: 700; border: none; background: none; cursor: pointer; font-size: 13px; }
+
+    /* Tab Styles */
+    .tab-nav { display: flex; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 60; }
+    .tab-btn { flex: 1; padding: 12px 0; text-align: center; font-size: 12px; font-weight: 800; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+    .tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Emoji Palette Style */
+    #mobile-emoji-palette { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-surface); border-top: 1px solid var(--border-color); display: flex; gap: 8px; padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); overflow-x: auto; scrollbar-width: none; z-index: 2000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); transition: transform 0.1s ease-out; }
+    #mobile-emoji-palette::-webkit-scrollbar { display: none; }
+    .emoji-btn { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; font-size: 20px; padding: 8px 12px; cursor: pointer; flex-shrink: 0; user-select: none; -webkit-user-select: none; }
+    .emoji-btn:active { background: var(--border-color); }
+    .md-red-bold { color: var(--danger-color); font-weight: 800; }
+    .archive-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
+    .archive-date { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-weight: 700; letter-spacing: 0.05em; }
+    .archive-text { font-size: 14px; line-height: 1.5; color: var(--text-main); word-break: break-word; }
+
   </style>
 </head>
 <body>
@@ -104,29 +122,66 @@
     </div>
   </header>
 
+  <!-- Step 2: Tab Navigation Added -->
+  <nav class="tab-nav">
+    <button class="tab-btn active" id="tab-btn-log">DAILY LOG</button>
+    <button class="tab-btn" id="tab-btn-todo">TODO</button>
+    <button class="tab-btn" id="tab-btn-archive">ARCHIVE</button>
+  </nav>
+
   <main class="main-container" id="main-container">
-    <div id="hour-selector" class="hidden">
-      <div class="pane-header">SELECT HOUR</div>
-      <div id="hour-grid" class="hour-grid"></div>
+    
+    <!-- Step 2: Wrapped existing contents in tab-content divs -->
+    <div id="tab-log" class="tab-content active">
+      <div id="hour-selector" class="hidden">
+        <div class="pane-header">SELECT HOUR</div>
+        <div id="hour-grid" class="hour-grid"></div>
+      </div>
+      <section class="pane">
+        <div class="pane-header">DAILY LOG</div>
+        <div id="log-content" style="padding: 0 16px 32px 16px;"></div>
+      </section>
     </div>
 
-    <section class="pane">
-      <div class="pane-header">DAILY LOG</div>
-      <div id="log-content" style="padding: 0 16px 32px 16px;"></div>
-    </section>
+    <div id="tab-todo" class="tab-content">
+      <section class="pane">
+        <div class="pane-header">
+          <span>TODO INBOX</span>
+          <button class="action-btn primary" id="btn-add-todo">＋ TODO追加</button>
+        </div>
+        <div id="todo-content"></div>
+      </section>
+    </div>
 
-    <section class="pane" style="border-top: 8px solid var(--bg-base);">
-      <div class="pane-header">
-        <span>TODO INBOX</span>
-        <button class="action-btn primary" id="btn-add-todo">＋ TODO追加</button>
-      </div>
-      <div id="todo-content"></div>
-    </section>
+    <div id="tab-archive" class="tab-content">
+      <section class="pane">
+        <div class="pane-header">ARCHIVE (📦)</div>
+        <div id="archive-content"></div>
+      </section>
+    </div>
+
   </main>
 
   <div id="undo-snackbar">
     <span id="undo-message" style="font-size: 13px; font-weight: 500;">削除しました</span>
     <button id="btn-undo">元に戻す</button>
+  </div>
+
+  <!-- Step 2: Emoji Palette Added -->
+  <div id="mobile-emoji-palette">
+    <button class="emoji-btn">🟢</button>
+    <button class="emoji-btn">📞</button>
+    <button class="emoji-btn">🗣️</button>
+    <button class="emoji-btn">📧</button>
+    <button class="emoji-btn">🔥</button>
+    <button class="emoji-btn">💡</button>
+    <button class="emoji-btn">⏳</button>
+    <button class="emoji-btn">💭</button>
+    <button class="emoji-btn">💤</button>
+    <button class="emoji-btn">🙋</button>
+    <button class="emoji-btn">🔲</button>
+    <button class="emoji-btn">✅</button>
+    <button class="emoji-btn">⏭️</button>
   </div>
 
   <script>
@@ -137,6 +192,25 @@
     let state = { logs: {}, todos: [], collapsedHours: {}, currentDateStr: "" };
     let isDirty = false; let syncTimer = null; let saveTimeout = null; let lastDeleted = null;
     let isFetching = false; // GAS受信中フラグ（saveToLocal競合防止）
+    let lastFocusedTarget = null; // Step 4-1: 最後にフォーカスされた入力欄を保持
+
+    /**
+     * Step 3-1: Markdown変換ヘルパー関数
+     * XSS対策でサニタイズした上で、**テキスト** を赤太文字（.md-red-bold）に変換する
+     */
+    function parseMarkdown(text) {
+      if (!text) return '';
+      // 1. HTMLエスケープ (XSS対策)
+      let escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+      
+      // 2. **文字** を <span> タグに置換
+      return escaped.replace(/\*\*(.*?)\*\*/g, '<span class="md-red-bold">$1</span>');
+    }
 
     async function initData() {
       const saved = localStorage.getItem('zl_logger_state');
@@ -207,8 +281,6 @@
 
     /**
      * GASから受信したログとローカルログをマージ
-     * - 両方にあるエントリ（text+depth一致）→ updatedAtが新しい方を採用
-     * - 片方にしかないエントリ → 追加
      */
     function mergeLogs(localLogs, cloudLogs) {
       const merged = JSON.parse(JSON.stringify(localLogs));
@@ -267,7 +339,6 @@
         if (result.status === 'success' && result.data) {
           isFetching = true;
           try {
-            // クラウドデータを正規化してからマージ
             const cloudLogs = migrateData(result.data.logs || {});
             const cloudTodos = result.data.todos || [];
             state.logs = mergeLogs(state.logs, cloudLogs);
@@ -276,7 +347,6 @@
             isFetching = false;
           }
 
-          // マージ結果を保存・描画
           localStorage.setItem('zl_logger_state', JSON.stringify(state));
           renderAll();
           document.getElementById('sync-status').textContent = "同期完了";
@@ -289,7 +359,7 @@
       }
     }
 
-    function renderAll() { renderCalendar(); renderDailyLog(); renderTodoList(); renderHourSelector(); }
+    function renderAll() { renderCalendar(); renderDailyLog(); renderTodoList(); renderHourSelector(); renderArchive(); }
 
     function renderCalendar() {
       const ribbon = document.getElementById('calendar-ribbon');
@@ -342,7 +412,9 @@
         let entriesHtml = entries.map((e, idx) => `
           <div class="entry-item">
             <div class="entry-text" contenteditable="true" 
-                 onblur="updateEntryText('${state.currentDateStr}', ${h}, ${idx}, this.innerText)">${e.text}</div>
+                 onfocus="this.innerText = state.logs['${state.currentDateStr}']['${h}'][${idx}].text; lastFocusedTarget = this;"
+                 onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
+                 onblur="updateEntryText('${state.currentDateStr}', ${h}, ${idx}, this.innerText)">${parseMarkdown(e.text)}</div>
           </div>
         `).join('');
 
@@ -356,6 +428,7 @@
             ${entriesHtml}
             ${isNow || !isCollapsed ? `
               <textarea class="input-pad" placeholder="なにか書く... (Enterで追加)" 
+                        onfocus="lastFocusedTarget = this;"
                         onkeydown="handleLogInput(event, ${h})"></textarea>
             ` : ''}
           </div>
@@ -365,7 +438,48 @@
       container.appendChild(timeline);
     }
 
+    /**
+     * Step 3-4: Ctrl+B (太字) の制御と ** の自前挿入ロジック
+     */
+    function handleEditorKeyDown(e, el) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault(); // ブラウザデフォルトの太文字化を防ぐ
+        
+        if (el.tagName && el.tagName.toLowerCase() === 'textarea') {
+          const start = el.selectionStart;
+          const end = el.selectionEnd;
+          const text = el.value;
+          const selected = text.substring(start, end);
+          el.value = text.substring(0, start) + '**' + selected + '**' + text.substring(end);
+          // カーソル位置を復元
+          el.selectionStart = start + 2;
+          el.selectionEnd = end + 2;
+        } else if (el.isContentEditable) {
+          const selection = window.getSelection();
+          if (!selection.rangeCount) return;
+          const range = selection.getRangeAt(0);
+          const selectedText = range.toString();
+          
+          const textNode = document.createTextNode('**' + selectedText + '**');
+          range.deleteContents();
+          range.insertNode(textNode);
+          
+          // カーソルを挿入した文字列のすぐ後ろに移動
+          range.setStart(textNode, selectedText.length + 4); 
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+    }
+
     function handleLogInput(e, hour) {
+      // Step 3-4: textareaでのCtrl+Bにも対応させる
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        handleEditorKeyDown(e, e.target);
+        return;
+      }
+
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         const text = e.target.value.trim();
@@ -382,7 +496,7 @@
       const entry = state.logs[date]?.[hour]?.[idx];
       if (!entry) return;
       const cleanText = newText.trim();
-      if (cleanText === entry.text) return;
+      if (cleanText === entry.text) { renderDailyLog(); return; } // 文字の変更がなくてもMarkdown表示(赤太文字)に戻すために再描画
       if (cleanText === "") { state.logs[date][hour].splice(idx, 1); } 
       else { entry.text = cleanText; entry.updatedAt = Date.now(); }
       scheduleSave(); renderAll();
@@ -412,18 +526,10 @@
       }
     }
 
-    /**
-     * --- Part 9: TODO管理と最終初期化 ---
-     */
-
-    /**
-     * TODOリストの描画
-     */
     function renderTodoList() {
       const container = document.getElementById('todo-content');
       container.innerHTML = '';
       
-      // 未完了を上に、完了済みを下にソート
       const sortedTodos = [...state.todos].sort((a, b) => {
         if (a.status === b.status) return b.updatedAt - a.updatedAt;
         return a.status === 'DONE' ? 1 : -1;
@@ -441,7 +547,9 @@
           <input type="checkbox" ${todo.status === 'DONE' ? 'checked' : ''} 
                  onchange="toggleTodo('${todo.id}')" style="margin-top:4px;">
           <div class="todo-text" contenteditable="true" style="flex:1; outline:none;"
-               onblur="updateTodoText('${todo.id}', this.innerText)">${todo.text}</div>
+               onfocus="this.innerText = state.todos.find(t => t.id === '${todo.id}').text; lastFocusedTarget = this;"
+               onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
+               onblur="updateTodoText('${todo.id}', this.innerText)">${parseMarkdown(todo.text)}</div>
           <button onclick="deleteTodo('${todo.id}')" style="background:none; border:none; color:var(--danger-color); font-size:16px; cursor:pointer; opacity:0.3;">×</button>
         `;
         container.appendChild(item);
@@ -459,10 +567,13 @@
 
     function updateTodoText(id, text) {
       const todo = state.todos.find(t => t.id === id);
-      if (todo && todo.text !== text.trim()) {
-        todo.text = text.trim();
+      if (todo) {
+        const cleanText = text.trim();
+        if (todo.text === cleanText) { renderTodoList(); return; } // 文字変更がなくてもMarkdown表示に戻すために再描画
+        todo.text = cleanText;
         todo.updatedAt = Date.now();
         scheduleSave();
+        renderTodoList();
       }
     }
 
@@ -484,8 +595,58 @@
     }
 
     /**
-     * 日付移動
+     * Step 5-2: ARCHIVE描画機能
      */
+    function renderArchive() {
+      const container = document.getElementById('archive-content');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      // パフォーマンス対策: ARCHIVEタブが開いていない時はDOM生成をスキップ
+      if (!document.getElementById('tab-archive').classList.contains('active')) {
+        return;
+      }
+
+      let archiveItems = [];
+      
+      // 全データを走査して「📦」から始まるものを抽出
+      Object.keys(state.logs).forEach(date => {
+        Object.keys(state.logs[date]).forEach(hour => {
+          state.logs[date][hour].forEach(entry => {
+            if (entry.text.startsWith('📦')) {
+              archiveItems.push({
+                date: date,
+                hour: hour,
+                text: entry.text,
+                updatedAt: entry.updatedAt
+              });
+            }
+          });
+        });
+      });
+
+      // 日付の降順（新しい順）、時間の降順でソート
+      archiveItems.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return parseInt(b.hour) - parseInt(a.hour);
+      });
+
+      if (archiveItems.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted); font-size:12px;">アーカイブされた記録はありません<br>行頭に「📦」をつけるとここに表示されます</div>';
+        return;
+      }
+
+      archiveItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'archive-item';
+        div.innerHTML = `
+          <div class="archive-date">${item.date} ${String(item.hour).padStart(2, '0')}:00</div>
+          <div class="archive-text">${parseMarkdown(item.text)}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
     function moveDate(offset) {
       const d = new Date(state.currentDateStr);
       d.setDate(d.getDate() + offset);
@@ -493,9 +654,6 @@
       renderAll();
     }
 
-    /**
-     * クリップボード出力
-     */
     function copyOutput() {
       const logs = state.logs[state.currentDateStr] || {};
       let text = `■ ${state.currentDateStr} の日誌\n\n`;
@@ -522,18 +680,41 @@
       document.body.removeChild(textArea);
     }
 
-    // イベントリスナー登録
+    /**
+     * Step 5-1: タブ切り替えロジック
+     */
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      document.getElementById('tab-btn-' + tabId).classList.add('active');
+      document.getElementById('tab-' + tabId).classList.add('active');
+      
+      // Step 5-2: ARCHIVEタブが開かれたときに遅延描画を実行
+      if (tabId === 'archive') {
+        renderArchive();
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       initData();
       document.getElementById('btn-cal-prev').onclick = () => moveDate(-1);
       document.getElementById('btn-cal-next').onclick = () => moveDate(1);
       document.getElementById('btn-add-past').onclick = () => document.getElementById('hour-selector').classList.toggle('hidden');
       document.getElementById('btn-copy-output').onclick = copyOutput;
+      
+      // Step 5-1: タブ切り替えイベント
+      document.getElementById('tab-btn-log').onclick = () => switchTab('log');
+      document.getElementById('tab-btn-todo').onclick = () => switchTab('todo');
+      document.getElementById('tab-btn-archive').onclick = () => switchTab('archive');
+
+      // Step 4-2: TODO追加時の初期値を '🔲 ' に変更
       document.getElementById('btn-add-todo').onclick = () => {
-        state.todos.unshift({ id: 'todo_' + Date.now(), text: '', status: 'ACTIVE', depth: 0, updatedAt: Date.now() });
+        state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ', status: 'ACTIVE', depth: 0, updatedAt: Date.now() });
         renderTodoList();
         document.querySelector('.todo-text')?.focus();
       };
+      
       document.getElementById('btn-undo').onclick = () => {
         if (lastDeleted && lastDeleted.type === 'todo') {
           state.todos.splice(lastDeleted.index, 0, lastDeleted.data);
@@ -543,8 +724,64 @@
         }
       };
 
-      // 定期的なクラウド同期（30秒ごと）
-      // 編集中でない場合のみGASからデータを取得してマージする
+      // Step 4-2: 絵文字パレットの挿入ロジック
+      const handleEmojiClick = (e) => {
+        e.preventDefault(); // 入力欄からフォーカスが外れる(blur)のを防ぎ、再描画を抑止
+        if (!lastFocusedTarget) return;
+
+        const emoji = e.target.textContent;
+
+        if (lastFocusedTarget.tagName && lastFocusedTarget.tagName.toLowerCase() === 'textarea') {
+          const text = lastFocusedTarget.value;
+          lastFocusedTarget.value = emoji + text;
+          lastFocusedTarget.focus();
+          lastFocusedTarget.selectionStart = emoji.length;
+          lastFocusedTarget.selectionEnd = emoji.length;
+        } else if (lastFocusedTarget.isContentEditable) {
+          const text = lastFocusedTarget.innerText;
+          lastFocusedTarget.innerText = emoji + text;
+          lastFocusedTarget.focus();
+
+          // カーソル位置を挿入した絵文字の直後にセット
+          const selection = window.getSelection();
+          const range = document.createRange();
+          if (lastFocusedTarget.firstChild) {
+            try {
+              range.setStart(lastFocusedTarget.firstChild, emoji.length);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } catch (err) { console.error("Cursor set error", err); }
+          }
+        }
+      };
+
+      // ボタンにイベントをバインド（モバイル対応のため touchstart も付与）
+      document.querySelectorAll('.emoji-btn').forEach(btn => {
+        btn.addEventListener('mousedown', handleEmojiClick);
+        btn.addEventListener('touchstart', handleEmojiClick, { passive: false });
+      });
+
+      // Step 4-3: モバイル(iOS)キーボード連動対応 (visualViewport)
+      if (window.visualViewport) {
+        const palette = document.getElementById('mobile-emoji-palette');
+        const onViewportChange = () => {
+          // 画面本来の高さと、キーボード等に押し上げられて狭くなった高さの差分を計算
+          const offset = window.innerHeight - window.visualViewport.height;
+          
+          // 差分が50px以上ならキーボードが出ているとみなしてパレットを押し上げる
+          if (offset > 50) {
+            palette.style.transform = `translateY(-${offset}px)`;
+          } else {
+            palette.style.transform = 'translateY(0)';
+          }
+        };
+
+        // リサイズ（キーボード開閉）とスクロールの両方を監視
+        window.visualViewport.addEventListener('resize', onViewportChange);
+        window.visualViewport.addEventListener('scroll', onViewportChange);
+      }
+
       setInterval(() => {
         if (!isDirty) {
           fetchCloudData();
