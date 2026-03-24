@@ -78,6 +78,18 @@
     .todo-item.done { opacity: 0.5; }
     .todo-item.done .todo-text { text-decoration: line-through; color: var(--text-muted); }
 
+    /* Step 1: TODOとLOGの相互送信ボタン＆LOG下部TODOエリアのCSS */
+    .action-icon-btn { background: transparent; border: none; font-size: 14px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s, transform 0.1s; padding: 2px 4px; margin-left: auto; }
+    .entry-item:hover .action-icon-btn, .todo-item:hover .action-icon-btn { opacity: 0.7; }
+    .action-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
+    
+    .log-todo-section { margin-top: 24px; padding-top: 16px; border-top: 2px dashed var(--border-color); }
+    .log-todo-header { font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 12px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+
+    /* Step 2準備: TODOインライン編集用のスタイル */
+    .todo-text[contenteditable="true"] { padding: 2px 4px; border-radius: 4px; transition: background 0.2s; min-height: 1.5em; }
+    .todo-text[contenteditable="true"]:focus { background: var(--bg-base); outline: 1px solid var(--border-color); }
+
     /* Utility Styles */
     .pane-header { padding: 12px 16px; font-size: 12px; font-weight: 800; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; color: var(--text-muted); text-transform: uppercase; }
     .action-btn { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; font-size: 11px; font-weight: 600; padding: 6px 10px; cursor: pointer; color: var(--text-main); }
@@ -149,7 +161,15 @@
       </div>
       <section class="pane">
         <div class="pane-header">DAILY LOG</div>
-        <div id="log-content" style="padding: 0 16px 32px 16px;"></div>
+        <div id="log-content" style="padding: 0 16px 16px 16px;"></div>
+        
+        <!-- Step 1: LOGタブ下部にTODOインボックスを表示するエリアを追加 -->
+        <div class="log-todo-section">
+          <div class="log-todo-header">
+            <span>TODO INBOX</span>
+          </div>
+          <div id="log-todo-content" style="padding-bottom: 32px;"></div>
+        </div>
       </section>
     </div>
 
@@ -384,6 +404,8 @@
                  onfocus="this.innerText = state.logs['${state.currentDateStr}']['${h}'][${idx}].text; lastFocusedTarget = this;"
                  onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
                  onblur="updateEntryText('${state.currentDateStr}', ${h}, ${idx}, this.innerText)">${parseMarkdown(e.text)}</div>
+            <!-- Step 5: PWA版でもLOGからTODOへ送るボタンを追加 -->
+            <button class="action-icon-btn" title="TODOに追加" onclick="sendToTodo('${state.currentDateStr}', ${h}, ${idx})">🔲</button>
           </div>
         `).join('');
 
@@ -487,6 +509,43 @@
       renderDailyLog();
     }
 
+    // Step 5: 相互送信機能とEnterキー移動ロジックの追加
+    function sendToTodo(date, hour, idx) {
+      const entry = state.logs[date][hour][idx];
+      const cleanText = entry.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
+      state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ' + cleanText, status: 'ACTIVE', depth: 0, updatedAt: Date.now() });
+      scheduleSave();
+      renderTodoList();
+    }
+
+    function sendToLog(id) {
+      const todo = state.todos.find(t => t.id === id);
+      if (!todo) return;
+      const currentHour = new Date().getHours();
+      const today = getTodayStr();
+      if (!state.logs[today]) state.logs[today] = {};
+      if (!state.logs[today][currentHour]) state.logs[today][currentHour] = [];
+      const cleanText = todo.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
+      state.logs[today][currentHour].push({ id: 'log_' + Date.now(), text: '✅ ' + cleanText, depth: 0, updatedAt: Date.now() });
+      scheduleSave();
+      renderAll();
+    }
+
+    function handleTodoKeyDownPWA(e, el, id, idx) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        el.blur();
+        setTimeout(() => {
+          const allTodos = document.querySelectorAll('#todo-content .todo-text');
+          if (idx + 1 < allTodos.length) {
+            allTodos[idx + 1].focus();
+          } else {
+            document.getElementById('btn-add-todo').click();
+          }
+        }, 50);
+      }
+    }
+
     function renderHourSelector() {
       const grid = document.getElementById('hour-grid');
       grid.innerHTML = '';
@@ -505,9 +564,13 @@
       }
     }
 
+    // Step 5: PWA版のTODO描画を改修（LOG下部への同期描画、相互送信ボタンの追加）
     function renderTodoList() {
       const container = document.getElementById('todo-content');
-      container.innerHTML = '';
+      const logTodoContainer = document.getElementById('log-todo-content');
+      
+      if(container) container.innerHTML = '';
+      if(logTodoContainer) logTodoContainer.innerHTML = '';
       
       const sortedTodos = [...state.todos].sort((a, b) => {
         if (a.status === b.status) return b.updatedAt - a.updatedAt;
@@ -515,23 +578,27 @@
       });
 
       if (sortedTodos.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted); font-size:12px;">タスクはありません</div>';
+        const emptyMsg = '<div style="text-align:center; padding:32px; color:var(--text-muted); font-size:12px;">タスクはありません</div>';
+        if(container) container.innerHTML = emptyMsg;
+        if(logTodoContainer) logTodoContainer.innerHTML = emptyMsg;
         return;
       }
 
       sortedTodos.forEach((todo, idx) => {
-        const item = document.createElement('div');
-        item.className = `todo-item ${todo.status === 'DONE' ? 'done' : ''}`;
-        item.innerHTML = `
-          <input type="checkbox" ${todo.status === 'DONE' ? 'checked' : ''} 
-                 onchange="toggleTodo('${todo.id}')" style="margin-top:4px;">
-          <div class="todo-text" contenteditable="true" style="flex:1; outline:none;"
-               onfocus="this.innerText = state.todos.find(t => t.id === '${todo.id}').text; lastFocusedTarget = this;"
-               onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
-               onblur="updateTodoText('${todo.id}', this.innerText)">${parseMarkdown(todo.text)}</div>
-          <button onclick="deleteTodo('${todo.id}')" style="background:none; border:none; color:var(--danger-color); font-size:16px; cursor:pointer; opacity:0.3;">×</button>
+        const itemHtml = `
+          <div class="todo-item ${todo.status === 'DONE' ? 'done' : ''}">
+            <input type="checkbox" ${todo.status === 'DONE' ? 'checked' : ''} 
+                   onchange="toggleTodo('${todo.id}')" style="margin-top:4px;">
+            <div class="todo-text" contenteditable="true" style="flex:1; outline:none;"
+                 onfocus="this.innerText = state.todos.find(t => t.id === '${todo.id}').text; lastFocusedTarget = this;"
+                 onkeydown="handleTodoKeyDownPWA(event, this, '${todo.id}', ${idx})"
+                 onblur="updateTodoText('${todo.id}', this.innerText)">${parseMarkdown(todo.text)}</div>
+            <button class="action-icon-btn" title="今の時間に記録" onclick="sendToLog('${todo.id}')">📝</button>
+            <button onclick="deleteTodo('${todo.id}')" style="background:none; border:none; color:var(--danger-color); font-size:16px; cursor:pointer; opacity:0.3; padding-left:8px;">×</button>
+          </div>
         `;
-        container.appendChild(item);
+        if(container) container.insertAdjacentHTML('beforeend', itemHtml);
+        if(logTodoContainer) logTodoContainer.insertAdjacentHTML('beforeend', itemHtml);
       });
     }
 
@@ -578,7 +645,8 @@
       if (!container) return;
       container.innerHTML = '';
       
-      if (!document.getElementById('tab-archive').classList.contains('active')) return;
+      // Step 5: タブアクティブ判定を削除し、常に同期描画させる
+      // if (!document.getElementById('tab-archive').classList.contains('active')) return;
 
       let archiveItems = [];
       Object.keys(state.logs).forEach(date => {
