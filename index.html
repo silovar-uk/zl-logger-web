@@ -29,11 +29,13 @@
 
     /* Base Layout */
     *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: var(--bg-base); color: var(--text-main); height: 100dvh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; line-height: 1.5; }
+    /* Step 3: Reduce global line-height from 1.5 to 1.4 */
+    body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: var(--bg-base); color: var(--text-main); height: 100dvh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; line-height: 1.4; }
 
     /* UI Components Style */
     .app-header { flex-shrink: 0; background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 100; padding-top: var(--safe-area-top); }
-    .header-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; }
+    /* Step 3: Reduce top header padding */
+    .header-top { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; }
     .logo-container { display: flex; align-items: baseline; gap: 8px; }
     .logo { font-weight: 800; font-size: 16px; letter-spacing: -0.025em; }
     #sync-status { font-size: 10px; color: var(--text-muted); font-weight: 500; }
@@ -54,44 +56,50 @@
     /* Timeline & Input Pad Style */
     .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding-bottom: 24px; }
     .timeline { position: relative; padding-left: 24px; margin-left: 12px; border-left: 2px solid var(--border-color); margin-top: 16px; }
-    .timeline-item { position: relative; margin-bottom: 24px; }
+    /* Step 1: タイムライン要素間のマージンを圧縮 (24px -> 16px) */
+    .timeline-item { position: relative; margin-bottom: 16px; }
     .timeline-item.collapsed .time-body { display: none; }
     .timeline-dot { position: absolute; left: -30px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent-color); border: 2px solid var(--bg-base); }
     .timeline-item.collapsed .timeline-dot { background-color: var(--text-muted); }
     
-    /* Step 3 & 4: 時間ヘッダーのホバー効果とトグルアイコン */
-    .time-header { display: flex; align-items: center; gap: 6px; cursor: pointer; margin-bottom: 8px; padding: 4px 8px; border-radius: 6px; margin-left: -8px; transition: background-color 0.1s; }
+    /* Step 1: 時間見出しの下マージンを圧縮 (8px -> 4px) */
+    .time-header { display: flex; align-items: center; gap: 6px; cursor: pointer; margin-bottom: 4px; padding: 4px 8px; border-radius: 6px; margin-left: -8px; transition: background-color 0.1s; }
     .time-header:hover { background-color: var(--border-color); }
     .toggle-icon { font-size: 10px; color: var(--text-muted); transition: transform 0.2s ease; display: inline-block; }
     .timeline-item.collapsed .toggle-icon { transform: rotate(-90deg); }
     
     .time-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; }
-    .entry-item { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; margin-bottom: 6px; color: var(--text-main); }
+    /* Step 1: ログ要素の下マージンを圧縮 (6px -> 2px) */
+    .entry-item { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; margin-bottom: 2px; color: var(--text-main); }
     .entry-item::before { content: "•"; color: var(--text-muted); font-weight: bold; flex-shrink: 0; }
     .entry-text { flex: 1; word-break: break-word; min-height: 1.5em; outline: none; }
-    .input-pad { width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px; background-color: var(--bg-surface); border: 1px solid var(--border-color); font-size: 15px; color: var(--text-main); outline: none; resize: none; transition: all 0.2s ease; margin-top: 8px; }
+    
+    /* Step 3: Reduce min-height and padding of the input textarea */
+    .input-pad { width: 100%; min-height: 36px; padding: 8px 10px; border-radius: 12px; background-color: var(--bg-surface); border: 1px solid var(--border-color); font-size: 15px; color: var(--text-main); outline: none; resize: none; transition: all 0.2s ease; margin-top: 4px; }
     .input-pad:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
     .hour-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 16px; }
     .hour-chip { padding: 10px 0; text-align: center; border-radius: 8px; font-size: 12px; font-weight: 600; background-color: var(--bg-surface); border: 1px solid var(--border-color); cursor: pointer; color: var(--text-main); }
     .hour-chip.has-content { border-color: var(--accent-color); color: var(--accent-color); }
-    .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-surface); }
+    
+    /* Step 2: Reduce padding for TODO items (12px 16px -> 8px 16px) */
+    .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-surface); }
     .todo-item.done { opacity: 0.5; }
     .todo-item.done .todo-text { text-decoration: line-through; color: var(--text-muted); }
 
-    /* Step 1: TODOとLOGの相互送信ボタン＆LOG下部TODOエリアのCSS */
     .action-icon-btn { background: transparent; border: none; font-size: 14px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s, transform 0.1s; padding: 2px 4px; margin-left: auto; }
     .entry-item:hover .action-icon-btn, .todo-item:hover .action-icon-btn { opacity: 0.7; }
     .action-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
     
-    .log-todo-section { margin-top: 24px; padding-top: 16px; border-top: 2px dashed var(--border-color); }
+    /* Step 2: Reduce top margins for the TODO INBOX section in Log tab (24px/16px -> 12px/8px) */
+    .log-todo-section { margin-top: 12px; padding-top: 8px; border-top: 2px dashed var(--border-color); }
     .log-todo-header { font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 12px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
 
-    /* Step 2準備: TODOインライン編集用のスタイル */
     .todo-text[contenteditable="true"] { padding: 2px 4px; border-radius: 4px; transition: background 0.2s; min-height: 1.5em; }
     .todo-text[contenteditable="true"]:focus { background: var(--bg-base); outline: 1px solid var(--border-color); }
 
     /* Utility Styles */
-    .pane-header { padding: 12px 16px; font-size: 12px; font-weight: 800; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; color: var(--text-muted); text-transform: uppercase; }
+    /* Step 3: Reduce pane header padding */
+    .pane-header { padding: 8px 16px; font-size: 12px; font-weight: 800; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; color: var(--text-muted); text-transform: uppercase; }
     .action-btn { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; font-size: 11px; font-weight: 600; padding: 6px 10px; cursor: pointer; color: var(--text-main); }
     .action-btn.primary { background: var(--accent-color); color: white; border: none; }
     .hidden { display: none !important; }
@@ -102,12 +110,12 @@
 
     /* Tab Styles */
     .tab-nav { display: flex; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 60; }
-    .tab-btn { flex: 1; padding: 12px 0; text-align: center; font-size: 12px; font-weight: 800; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+    /* Step 3: Tighten tab button padding */
+    .tab-btn { flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 800; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
     .tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Step 4: 小型絵文字パレット (Inline Emoji Palette) のスタイル追加 */
     .inline-emoji-palette { display: flex; gap: 6px; margin-top: 6px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
     .inline-emoji-palette::-webkit-scrollbar { display: none; }
     .mini-icon-btn { background: transparent; border: none; border-radius: 6px; font-size: 14px; padding: 4px 6px; cursor: pointer; flex-shrink: 0; user-select: none; transition: all 0.1s; color: var(--text-main); }
@@ -115,7 +123,8 @@
     .mini-icon-btn:active { transform: scale(0.9); }
 
     .md-red-bold { color: var(--danger-color); font-weight: 800; }
-    .archive-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
+    /* Step 2: Reduce padding for Archive items (12px 16px -> 8px 16px) */
+    .archive-item { padding: 8px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
     .archive-date { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-weight: 700; letter-spacing: 0.05em; }
     .archive-text { font-size: 14px; line-height: 1.5; color: var(--text-main); word-break: break-word; }
 
@@ -129,7 +138,6 @@
         <div class="logo">Zero-Latency Logger</div>
         <div style="display: flex; align-items: center; gap: 4px;">
           <span id="sync-status">初期化中...</span>
-          <!-- Step 1: 手動同期ボタンを追加 -->
           <button id="btn-manual-sync" style="background:none; border:none; cursor:pointer; font-size:12px; color:var(--text-muted); padding:2px; transition: transform 0.3s;" title="手動同期">🔄</button>
         </div>
       </div>
@@ -163,7 +171,6 @@
         <div class="pane-header">DAILY LOG</div>
         <div id="log-content" style="padding: 0 16px 16px 16px;"></div>
         
-        <!-- Step 1: LOGタブ下部にTODOインボックスを表示するエリアを追加 -->
         <div class="log-todo-section">
           <div class="log-todo-header">
             <span>TODO INBOX</span>
@@ -242,9 +249,18 @@
           if (typeof content === 'string') {
             newLogs[date][hour] = content.split('\n').filter(t => t.trim()).map(text => ({
               id: 'mig_' + Math.random().toString(36).substr(2, 9),
-              text: text.replace(/^-\s*/, ''), depth: 0, updatedAt: Date.now()
+              text: text.replace(/^-\s*/, ''), 
+              depth: 0, 
+              updatedAt: Date.now(),
+              deletedAt: null 
             }));
-          } else { newLogs[date][hour] = content; }
+          } else { 
+            newLogs[date][hour] = content.map(item => ({
+              ...item,
+              id: item.id || 'mig_' + Math.random().toString(36).substr(2, 9),
+              deletedAt: item.deletedAt || null
+            }));
+          }
         }
       }
       return newLogs;
@@ -291,9 +307,12 @@
           const cloudEntries = cloudLogs[date][hour] || [];
           const localEntries = merged[date][hour] || [];
           cloudEntries.forEach(cloudEntry => {
-            const localMatch = localEntries.find(l => l.text === cloudEntry.text && l.depth === cloudEntry.depth);
-            if (localMatch) {
-              if (cloudEntry.updatedAt > localMatch.updatedAt) localMatch.updatedAt = cloudEntry.updatedAt;
+            if (!cloudEntry.id) return;
+            const localMatchIndex = localEntries.findIndex(l => l.id === cloudEntry.id);
+            if (localMatchIndex !== -1) {
+              if (cloudEntry.updatedAt > localEntries[localMatchIndex].updatedAt) {
+                localEntries[localMatchIndex] = cloudEntry;
+              }
             } else {
               localEntries.push(cloudEntry);
             }
@@ -306,13 +325,19 @@
 
     function mergeTodos(localTodos, cloudTodos) {
       const merged = JSON.parse(JSON.stringify(localTodos));
+      merged.forEach(todo => {
+        if (todo.deletedAt === undefined) todo.deletedAt = null;
+        if (!todo.id) todo.id = 'todo_mig_' + Math.random().toString(36).substr(2, 9);
+      });
       cloudTodos.forEach(cloudTodo => {
-        const localMatch = merged.find(l => l.id === cloudTodo.id);
-        if (localMatch) {
-          if (cloudTodo.updatedAt > localMatch.updatedAt) Object.assign(localMatch, cloudTodo);
+        if (!cloudTodo.id) return;
+        const localMatchIndex = merged.findIndex(l => l.id === cloudTodo.id);
+        if (localMatchIndex !== -1) {
+          if (cloudTodo.updatedAt > merged[localMatchIndex].updatedAt) {
+            merged[localMatchIndex] = cloudTodo;
+          }
         } else {
-          const textMatch = merged.find(l => l.text === cloudTodo.text);
-          if (!textMatch) merged.push(cloudTodo);
+          merged.push(cloudTodo);
         }
       });
       return merged;
@@ -375,7 +400,10 @@
 
     function getActivityDots(dateStr) {
       const dayLogs = state.logs[dateStr] || {};
-      let count = 0; Object.values(dayLogs).forEach(h => count += h.length);
+      let count = 0; Object.values(dayLogs).forEach(h => {
+        const activeEntries = (h || []).filter(e => !e.deletedAt);
+        count += activeEntries.length;
+      });
       if (count === 0) return '';
       const level = count > 8 ? 3 : count > 4 ? 2 : 1;
       let dotsHtml = ''; for(let i=0; i<level; i++) dotsHtml += `<div class="dot level-${level}"></div>`;
@@ -391,25 +419,28 @@
       timeline.className = 'timeline';
 
       for (let h = 0; h < 24; h++) {
-        const entries = dayLogs[h] || [];
+        const entries = (dayLogs[h] || []).filter(e => !e.deletedAt);
+        
         const isNow = (h === nowHour && state.currentDateStr === getTodayStr());
         const isCollapsed = state.collapsedHours[`${state.currentDateStr}-${h}`] ?? true;
         if (entries.length === 0 && !isNow) continue;
 
         const section = document.createElement('div');
         section.className = `timeline-item ${isCollapsed && !isNow ? 'collapsed' : ''}`;
-        let entriesHtml = entries.map((e, idx) => `
-          <div class="entry-item">
-            <div class="entry-text" contenteditable="true" 
-                 onfocus="this.innerText = state.logs['${state.currentDateStr}']['${h}'][${idx}].text; lastFocusedTarget = this;"
-                 onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
-                 onblur="updateEntryText('${state.currentDateStr}', ${h}, ${idx}, this.innerText)">${parseMarkdown(e.text)}</div>
-            <!-- Step 5: PWA版でもLOGからTODOへ送るボタンを追加 -->
-            <button class="action-icon-btn" title="TODOに追加" onclick="sendToTodo('${state.currentDateStr}', ${h}, ${idx})">🔲</button>
-          </div>
-        `).join('');
+        
+        let entriesHtml = (dayLogs[h] || []).map((e, idx) => {
+          if (e.deletedAt) return ''; // Skip deleted ones
+          return `
+            <div class="entry-item">
+              <div class="entry-text" contenteditable="true" 
+                   onfocus="this.innerText = state.logs['${state.currentDateStr}']['${h}'][${idx}].text; lastFocusedTarget = this;"
+                   onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
+                   onblur="updateEntryText('${state.currentDateStr}', ${h}, ${idx}, this.innerText)">${parseMarkdown(e.text)}</div>
+              <button class="action-icon-btn" title="TODOに追加" onclick="sendToTodo('${state.currentDateStr}', ${h}, ${idx})">🔲</button>
+            </div>
+          `;
+        }).join('');
 
-        // Step 4: Web版へも小型絵文字パレットを適用＆ホバー効果付きヘッダー
         section.innerHTML = `
           <div class="timeline-dot"></div>
           <div class="time-header" onclick="toggleHour('${h}')" title="クリックで展開/折りたたみ">
@@ -487,7 +518,7 @@
         if (!text) return;
         if (!state.logs[state.currentDateStr]) state.logs[state.currentDateStr] = {};
         if (!state.logs[state.currentDateStr][hour]) state.logs[state.currentDateStr][hour] = [];
-        state.logs[state.currentDateStr][hour].push({ id: 'log_' + Date.now(), text: text, depth: 0, updatedAt: Date.now() });
+        state.logs[state.currentDateStr][hour].push({ id: 'log_' + Date.now(), text: text, depth: 0, updatedAt: Date.now(), deletedAt: null });
         e.target.value = ''; scheduleSave(); renderDailyLog();
         setTimeout(() => { const pads = document.querySelectorAll('.input-pad'); pads[pads.length - 1]?.focus(); }, 10);
       }
@@ -498,8 +529,13 @@
       if (!entry) return;
       const cleanText = newText.trim();
       if (cleanText === entry.text) { renderDailyLog(); return; } 
-      if (cleanText === "") { state.logs[date][hour].splice(idx, 1); } 
-      else { entry.text = cleanText; entry.updatedAt = Date.now(); }
+      if (cleanText === "") { 
+        entry.deletedAt = Date.now();
+        entry.updatedAt = Date.now();
+      } else { 
+        entry.text = cleanText; 
+        entry.updatedAt = Date.now(); 
+      }
       scheduleSave(); renderAll();
     }
 
@@ -509,11 +545,10 @@
       renderDailyLog();
     }
 
-    // Step 5: 相互送信機能とEnterキー移動ロジックの追加
     function sendToTodo(date, hour, idx) {
       const entry = state.logs[date][hour][idx];
       const cleanText = entry.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
-      state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ' + cleanText, status: 'ACTIVE', depth: 0, updatedAt: Date.now() });
+      state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ' + cleanText, status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
       scheduleSave();
       renderTodoList();
     }
@@ -526,7 +561,7 @@
       if (!state.logs[today]) state.logs[today] = {};
       if (!state.logs[today][currentHour]) state.logs[today][currentHour] = [];
       const cleanText = todo.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
-      state.logs[today][currentHour].push({ id: 'log_' + Date.now(), text: '✅ ' + cleanText, depth: 0, updatedAt: Date.now() });
+      state.logs[today][currentHour].push({ id: 'log_' + Date.now(), text: '✅ ' + cleanText, depth: 0, updatedAt: Date.now(), deletedAt: null });
       scheduleSave();
       renderAll();
     }
@@ -551,8 +586,9 @@
       grid.innerHTML = '';
       const dayLogs = state.logs[state.currentDateStr] || {};
       for (let h = 0; h < 24; h++) {
+        const hasContent = (dayLogs[h] || []).some(e => !e.deletedAt);
         const chip = document.createElement('div');
-        chip.className = `hour-chip ${dayLogs[h]?.length > 0 ? 'has-content' : ''}`;
+        chip.className = `hour-chip ${hasContent ? 'has-content' : ''}`;
         chip.textContent = `${h}:00`;
         chip.onclick = () => {
           state.collapsedHours[`${state.currentDateStr}-${h}`] = false;
@@ -564,7 +600,6 @@
       }
     }
 
-    // Step 5: PWA版のTODO描画を改修（LOG下部への同期描画、相互送信ボタンの追加）
     function renderTodoList() {
       const container = document.getElementById('todo-content');
       const logTodoContainer = document.getElementById('log-todo-content');
@@ -572,7 +607,9 @@
       if(container) container.innerHTML = '';
       if(logTodoContainer) logTodoContainer.innerHTML = '';
       
-      const sortedTodos = [...state.todos].sort((a, b) => {
+      const activeTodos = state.todos.filter(t => !t.deletedAt);
+      
+      const sortedTodos = [...activeTodos].sort((a, b) => {
         if (a.status === b.status) return b.updatedAt - a.updatedAt;
         return a.status === 'DONE' ? 1 : -1;
       });
@@ -616,18 +653,24 @@
       if (todo) {
         const cleanText = text.trim();
         if (todo.text === cleanText) { renderTodoList(); return; } 
-        todo.text = cleanText;
-        todo.updatedAt = Date.now();
+        if (cleanText === "") {
+          todo.deletedAt = Date.now();
+          todo.updatedAt = Date.now();
+        } else {
+          todo.text = cleanText;
+          todo.updatedAt = Date.now();
+        }
         scheduleSave();
         renderTodoList();
       }
     }
 
     function deleteTodo(id) {
-      const idx = state.todos.findIndex(t => t.id === id);
-      if (idx !== -1) {
-        lastDeleted = { type: 'todo', data: state.todos[idx], index: idx };
-        state.todos.splice(idx, 1);
+      const todo = state.todos.find(t => t.id === id);
+      if (todo) {
+        lastDeleted = { type: 'todo', id: todo.id }; // 復元用にIDだけ記憶
+        todo.deletedAt = Date.now();
+        todo.updatedAt = Date.now();
         scheduleSave(); renderTodoList();
         showUndo("TODOを削除しました");
       }
@@ -645,14 +688,11 @@
       if (!container) return;
       container.innerHTML = '';
       
-      // Step 5: タブアクティブ判定を削除し、常に同期描画させる
-      // if (!document.getElementById('tab-archive').classList.contains('active')) return;
-
       let archiveItems = [];
       Object.keys(state.logs).forEach(date => {
         Object.keys(state.logs[date]).forEach(hour => {
           state.logs[date][hour].forEach(entry => {
-            if (entry.text.startsWith('📦')) {
+            if (!entry.deletedAt && entry.text.startsWith('📦')) {
               archiveItems.push({ date: date, hour: hour, text: entry.text, updatedAt: entry.updatedAt });
             }
           });
@@ -692,10 +732,12 @@
       let text = `■ ${state.currentDateStr} の日誌\n\n`;
       let hasContent = false;
       for (let h = 0; h < 24; h++) {
-        if (logs[h] && logs[h].length > 0) {
+        const activeLogs = (logs[h] || []).filter(e => !e.deletedAt);
+        
+        if (activeLogs.length > 0) {
           hasContent = true;
           text += `[${h}:00]\n`;
-          logs[h].forEach(e => text += `- ${e.text}\n`);
+          activeLogs.forEach(e => text += `- ${e.text}\n`);
           text += `\n`;
         }
       }
@@ -735,28 +777,30 @@
       document.getElementById('tab-btn-archive').onclick = () => switchTab('archive');
 
       document.getElementById('btn-add-todo').onclick = () => {
-        state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ', status: 'ACTIVE', depth: 0, updatedAt: Date.now() });
+        state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ', status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
         renderTodoList();
         document.querySelector('.todo-text')?.focus();
       };
       
       document.getElementById('btn-undo').onclick = () => {
         if (lastDeleted && lastDeleted.type === 'todo') {
-          state.todos.splice(lastDeleted.index, 0, lastDeleted.data);
-          lastDeleted = null;
-          renderTodoList(); scheduleSave();
-          document.getElementById('undo-snackbar').classList.remove('show');
+          const todo = state.todos.find(t => t.id === lastDeleted.id);
+          if (todo) {
+            todo.deletedAt = null;
+            todo.updatedAt = Date.now();
+            lastDeleted = null;
+            renderTodoList(); scheduleSave();
+            document.getElementById('undo-snackbar').classList.remove('show');
+          }
         }
       };
 
-      // Step 4: 小型パレット用の直感的な絵文字挿入イベント実装
       const handleMiniEmojiClick = (e) => {
         if (e.target && e.target.classList.contains('mini-icon-btn')) {
-          e.preventDefault(); // フォーカスが外れるのを防ぐ
+          e.preventDefault(); 
           const emoji = e.target.textContent;
           const palette = e.target.parentElement;
           
-          // パレットのすぐ上にある入力欄を取得
           const targetInput = palette.previousElementSibling;
 
           if (targetInput && targetInput.tagName === 'TEXTAREA') {
@@ -772,14 +816,10 @@
       document.addEventListener('mousedown', handleMiniEmojiClick);
       document.addEventListener('touchstart', handleMiniEmojiClick, { passive: false });
 
-      // Step 1: 手動同期ボタンのクリックイベント
       document.getElementById('btn-manual-sync').onclick = () => {
         const btn = document.getElementById('btn-manual-sync');
-        btn.style.transform = 'rotate(360deg)'; // クルッと回すアニメーション
-        
-        // クラウドから強制フェッチ
+        btn.style.transform = 'rotate(360deg)'; 
         fetchCloudData().finally(() => {
-          // 回転アニメーションのリセット
           setTimeout(() => btn.style.transform = 'rotate(0deg)', 300);
         });
       };
