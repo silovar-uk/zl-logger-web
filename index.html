@@ -52,13 +52,19 @@
     .dot.level-3 { background-color: var(--accent-color); opacity: 1; }
 
     /* Timeline & Input Pad Style */
-    .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding-bottom: 80px; }
+    .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding-bottom: 24px; }
     .timeline { position: relative; padding-left: 24px; margin-left: 12px; border-left: 2px solid var(--border-color); margin-top: 16px; }
     .timeline-item { position: relative; margin-bottom: 24px; }
     .timeline-item.collapsed .time-body { display: none; }
     .timeline-dot { position: absolute; left: -30px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent-color); border: 2px solid var(--bg-base); }
     .timeline-item.collapsed .timeline-dot { background-color: var(--text-muted); }
-    .time-header { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px; }
+    
+    /* Step 3 & 4: 時間ヘッダーのホバー効果とトグルアイコン */
+    .time-header { display: flex; align-items: center; gap: 6px; cursor: pointer; margin-bottom: 8px; padding: 4px 8px; border-radius: 6px; margin-left: -8px; transition: background-color 0.1s; }
+    .time-header:hover { background-color: var(--border-color); }
+    .toggle-icon { font-size: 10px; color: var(--text-muted); transition: transform 0.2s ease; display: inline-block; }
+    .timeline-item.collapsed .toggle-icon { transform: rotate(-90deg); }
+    
     .time-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; }
     .entry-item { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; margin-bottom: 6px; color: var(--text-main); }
     .entry-item::before { content: "•"; color: var(--text-muted); font-weight: bold; flex-shrink: 0; }
@@ -89,11 +95,13 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Emoji Palette Style */
-    #mobile-emoji-palette { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-surface); border-top: 1px solid var(--border-color); display: flex; gap: 8px; padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); overflow-x: auto; scrollbar-width: none; z-index: 2000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); transition: transform 0.1s ease-out; }
-    #mobile-emoji-palette::-webkit-scrollbar { display: none; }
-    .emoji-btn { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; font-size: 20px; padding: 8px 12px; cursor: pointer; flex-shrink: 0; user-select: none; -webkit-user-select: none; }
-    .emoji-btn:active { background: var(--border-color); }
+    /* Step 4: 小型絵文字パレット (Inline Emoji Palette) のスタイル追加 */
+    .inline-emoji-palette { display: flex; gap: 6px; margin-top: 6px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
+    .inline-emoji-palette::-webkit-scrollbar { display: none; }
+    .mini-icon-btn { background: transparent; border: none; border-radius: 6px; font-size: 14px; padding: 4px 6px; cursor: pointer; flex-shrink: 0; user-select: none; transition: all 0.1s; color: var(--text-main); }
+    .mini-icon-btn:hover { background: var(--border-color); transform: translateY(-1px); }
+    .mini-icon-btn:active { transform: scale(0.9); }
+
     .md-red-bold { color: var(--danger-color); font-weight: 800; }
     .archive-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
     .archive-date { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-weight: 700; letter-spacing: 0.05em; }
@@ -107,7 +115,11 @@
     <div class="header-top">
       <div class="logo-container">
         <div class="logo">Zero-Latency Logger</div>
-        <span id="sync-status">初期化中...</span>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <span id="sync-status">初期化中...</span>
+          <!-- Step 1: 手動同期ボタンを追加 -->
+          <button id="btn-manual-sync" style="background:none; border:none; cursor:pointer; font-size:12px; color:var(--text-muted); padding:2px; transition: transform 0.3s;" title="手動同期">🔄</button>
+        </div>
       </div>
       <div style="display: flex; gap: 8px;">
         <button class="action-btn" id="btn-add-past">＋ 過去の記録</button>
@@ -122,7 +134,6 @@
     </div>
   </header>
 
-  <!-- Step 2: Tab Navigation Added -->
   <nav class="tab-nav">
     <button class="tab-btn active" id="tab-btn-log">DAILY LOG</button>
     <button class="tab-btn" id="tab-btn-todo">TODO</button>
@@ -131,7 +142,6 @@
 
   <main class="main-container" id="main-container">
     
-    <!-- Step 2: Wrapped existing contents in tab-content divs -->
     <div id="tab-log" class="tab-content active">
       <div id="hour-selector" class="hidden">
         <div class="pane-header">SELECT HOUR</div>
@@ -167,48 +177,24 @@
     <button id="btn-undo">元に戻す</button>
   </div>
 
-  <!-- Step 2: Emoji Palette Added -->
-  <div id="mobile-emoji-palette">
-    <button class="emoji-btn">🟢</button>
-    <button class="emoji-btn">📞</button>
-    <button class="emoji-btn">🗣️</button>
-    <button class="emoji-btn">📧</button>
-    <button class="emoji-btn">🔥</button>
-    <button class="emoji-btn">💡</button>
-    <button class="emoji-btn">⏳</button>
-    <button class="emoji-btn">💭</button>
-    <button class="emoji-btn">💤</button>
-    <button class="emoji-btn">🙋</button>
-    <button class="emoji-btn">🔲</button>
-    <button class="emoji-btn">✅</button>
-    <button class="emoji-btn">⏭️</button>
-  </div>
-
   <script>
     /**
-     * --- Part 5-8: 状態管理、保存、描画、編集 (既出) ---
+     * --- 状態管理、保存、描画、編集 ---
      */
     const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyMkNvgGRdZUR-OPSD_fnC41xz9rWZFpV9vUvVqvJMela8qBrp-9antY3XORssnaevu/exec';
     let state = { logs: {}, todos: [], collapsedHours: {}, currentDateStr: "" };
     let isDirty = false; let syncTimer = null; let saveTimeout = null; let lastDeleted = null;
-    let isFetching = false; // GAS受信中フラグ（saveToLocal競合防止）
-    let lastFocusedTarget = null; // Step 4-1: 最後にフォーカスされた入力欄を保持
+    let isFetching = false; // GAS受信中フラグ
+    let lastFocusedTarget = null; // 最後にフォーカスされた入力欄
 
-    /**
-     * Step 3-1: Markdown変換ヘルパー関数
-     * XSS対策でサニタイズした上で、**テキスト** を赤太文字（.md-red-bold）に変換する
-     */
     function parseMarkdown(text) {
       if (!text) return '';
-      // 1. HTMLエスケープ (XSS対策)
       let escaped = text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-      
-      // 2. **文字** を <span> タグに置換
       return escaped.replace(/\*\*(.*?)\*\*/g, '<span class="md-red-bold">$1</span>');
     }
 
@@ -224,8 +210,6 @@
       }
       state.currentDateStr = getTodayStr();
       renderAll();
-
-      // クラウドから最新データを非同期で取得
       fetchCloudData();
     }
 
@@ -258,7 +242,7 @@
     }
 
     function saveToLocal() {
-      if (isFetching) return; // GAS受信中は上書きしない
+      if (isFetching) return;
       localStorage.setItem('zl_logger_state', JSON.stringify(state));
       isDirty = false; document.getElementById('sync-status').textContent = "保存済み";
       triggerGASSync();
@@ -279,9 +263,6 @@
       }, 2000);
     }
 
-    /**
-     * GASから受信したログとローカルログをマージ
-     */
     function mergeLogs(localLogs, cloudLogs) {
       const merged = JSON.parse(JSON.stringify(localLogs));
       Object.keys(cloudLogs).forEach(date => {
@@ -290,13 +271,9 @@
           const cloudEntries = cloudLogs[date][hour] || [];
           const localEntries = merged[date][hour] || [];
           cloudEntries.forEach(cloudEntry => {
-            const localMatch = localEntries.find(
-              l => l.text === cloudEntry.text && l.depth === cloudEntry.depth
-            );
+            const localMatch = localEntries.find(l => l.text === cloudEntry.text && l.depth === cloudEntry.depth);
             if (localMatch) {
-              if (cloudEntry.updatedAt > localMatch.updatedAt) {
-                localMatch.updatedAt = cloudEntry.updatedAt;
-              }
+              if (cloudEntry.updatedAt > localMatch.updatedAt) localMatch.updatedAt = cloudEntry.updatedAt;
             } else {
               localEntries.push(cloudEntry);
             }
@@ -307,17 +284,12 @@
       return merged;
     }
 
-    /**
-     * GASから受信したTODOとローカルTODOをマージ
-     */
     function mergeTodos(localTodos, cloudTodos) {
       const merged = JSON.parse(JSON.stringify(localTodos));
       cloudTodos.forEach(cloudTodo => {
         const localMatch = merged.find(l => l.id === cloudTodo.id);
         if (localMatch) {
-          if (cloudTodo.updatedAt > localMatch.updatedAt) {
-            Object.assign(localMatch, cloudTodo);
-          }
+          if (cloudTodo.updatedAt > localMatch.updatedAt) Object.assign(localMatch, cloudTodo);
         } else {
           const textMatch = merged.find(l => l.text === cloudTodo.text);
           if (!textMatch) merged.push(cloudTodo);
@@ -326,9 +298,6 @@
       return merged;
     }
 
-    /**
-     * クラウド(GAS)から最新のデータを取得し、ローカルとマージして更新する
-     */
     async function fetchCloudData() {
       if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('YOUR_GAS')) return;
       document.getElementById('sync-status').textContent = "クラウド受信中...";
@@ -418,11 +387,13 @@
           </div>
         `).join('');
 
+        // Step 4: Web版へも小型絵文字パレットを適用＆ホバー効果付きヘッダー
         section.innerHTML = `
           <div class="timeline-dot"></div>
-          <div class="time-header" onclick="toggleHour('${h}')">
+          <div class="time-header" onclick="toggleHour('${h}')" title="クリックで展開/折りたたみ">
+            <span class="toggle-icon">▼</span>
             <span class="time-label">${String(h).padStart(2,'0')}:00</span>
-            ${isNow ? '<span style="font-size:9px; color:var(--accent-color); font-weight:800;">NOW</span>' : ''}
+            ${isNow ? '<span style="font-size:9px; color:var(--accent-color); font-weight:800; margin-left: 4px;">NOW</span>' : ''}
           </div>
           <div class="time-body">
             ${entriesHtml}
@@ -430,6 +401,22 @@
               <textarea class="input-pad" placeholder="なにか書く... (Enterで追加)" 
                         onfocus="lastFocusedTarget = this;"
                         onkeydown="handleLogInput(event, ${h})"></textarea>
+              
+              <div class="inline-emoji-palette">
+                <button class="mini-icon-btn" title="開始/進行中">🟢</button>
+                <button class="mini-icon-btn" title="電話/会議">📞</button>
+                <button class="mini-icon-btn" title="相談/会話">🗣️</button>
+                <button class="mini-icon-btn" title="メール/チャット">📧</button>
+                <button class="mini-icon-btn" title="重要/トラブル">🔥</button>
+                <button class="mini-icon-btn" title="アイデア/ひらめき">💡</button>
+                <button class="mini-icon-btn" title="待ち/保留">⏳</button>
+                <button class="mini-icon-btn" title="思考/検討">💭</button>
+                <button class="mini-icon-btn" title="休憩/離席">💤</button>
+                <button class="mini-icon-btn" title="質問/依頼">🙋</button>
+                <button class="mini-icon-btn" title="TODO">🔲</button>
+                <button class="mini-icon-btn" title="完了">✅</button>
+                <button class="mini-icon-btn" title="スキップ/先送り">⏭️</button>
+              </div>
             ` : ''}
           </div>
         `;
@@ -438,20 +425,15 @@
       container.appendChild(timeline);
     }
 
-    /**
-     * Step 3-4: Ctrl+B (太字) の制御と ** の自前挿入ロジック
-     */
     function handleEditorKeyDown(e, el) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-        e.preventDefault(); // ブラウザデフォルトの太文字化を防ぐ
-        
+        e.preventDefault(); 
         if (el.tagName && el.tagName.toLowerCase() === 'textarea') {
           const start = el.selectionStart;
           const end = el.selectionEnd;
           const text = el.value;
           const selected = text.substring(start, end);
           el.value = text.substring(0, start) + '**' + selected + '**' + text.substring(end);
-          // カーソル位置を復元
           el.selectionStart = start + 2;
           el.selectionEnd = end + 2;
         } else if (el.isContentEditable) {
@@ -464,7 +446,6 @@
           range.deleteContents();
           range.insertNode(textNode);
           
-          // カーソルを挿入した文字列のすぐ後ろに移動
           range.setStart(textNode, selectedText.length + 4); 
           range.collapse(true);
           selection.removeAllRanges();
@@ -474,12 +455,10 @@
     }
 
     function handleLogInput(e, hour) {
-      // Step 3-4: textareaでのCtrl+Bにも対応させる
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         handleEditorKeyDown(e, e.target);
         return;
       }
-
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         const text = e.target.value.trim();
@@ -496,7 +475,7 @@
       const entry = state.logs[date]?.[hour]?.[idx];
       if (!entry) return;
       const cleanText = newText.trim();
-      if (cleanText === entry.text) { renderDailyLog(); return; } // 文字の変更がなくてもMarkdown表示(赤太文字)に戻すために再描画
+      if (cleanText === entry.text) { renderDailyLog(); return; } 
       if (cleanText === "") { state.logs[date][hour].splice(idx, 1); } 
       else { entry.text = cleanText; entry.updatedAt = Date.now(); }
       scheduleSave(); renderAll();
@@ -569,7 +548,7 @@
       const todo = state.todos.find(t => t.id === id);
       if (todo) {
         const cleanText = text.trim();
-        if (todo.text === cleanText) { renderTodoList(); return; } // 文字変更がなくてもMarkdown表示に戻すために再描画
+        if (todo.text === cleanText) { renderTodoList(); return; } 
         todo.text = cleanText;
         todo.updatedAt = Date.now();
         scheduleSave();
@@ -594,38 +573,24 @@
       setTimeout(() => bar.classList.remove('show'), 5000);
     }
 
-    /**
-     * Step 5-2: ARCHIVE描画機能
-     */
     function renderArchive() {
       const container = document.getElementById('archive-content');
       if (!container) return;
       container.innerHTML = '';
       
-      // パフォーマンス対策: ARCHIVEタブが開いていない時はDOM生成をスキップ
-      if (!document.getElementById('tab-archive').classList.contains('active')) {
-        return;
-      }
+      if (!document.getElementById('tab-archive').classList.contains('active')) return;
 
       let archiveItems = [];
-      
-      // 全データを走査して「📦」から始まるものを抽出
       Object.keys(state.logs).forEach(date => {
         Object.keys(state.logs[date]).forEach(hour => {
           state.logs[date][hour].forEach(entry => {
             if (entry.text.startsWith('📦')) {
-              archiveItems.push({
-                date: date,
-                hour: hour,
-                text: entry.text,
-                updatedAt: entry.updatedAt
-              });
+              archiveItems.push({ date: date, hour: hour, text: entry.text, updatedAt: entry.updatedAt });
             }
           });
         });
       });
 
-      // 日付の降順（新しい順）、時間の降順でソート
       archiveItems.sort((a, b) => {
         if (a.date !== b.date) return b.date.localeCompare(a.date);
         return parseInt(b.hour) - parseInt(a.hour);
@@ -680,9 +645,6 @@
       document.body.removeChild(textArea);
     }
 
-    /**
-     * Step 5-1: タブ切り替えロジック
-     */
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -690,10 +652,7 @@
       document.getElementById('tab-btn-' + tabId).classList.add('active');
       document.getElementById('tab-' + tabId).classList.add('active');
       
-      // Step 5-2: ARCHIVEタブが開かれたときに遅延描画を実行
-      if (tabId === 'archive') {
-        renderArchive();
-      }
+      if (tabId === 'archive') renderArchive();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -703,12 +662,10 @@
       document.getElementById('btn-add-past').onclick = () => document.getElementById('hour-selector').classList.toggle('hidden');
       document.getElementById('btn-copy-output').onclick = copyOutput;
       
-      // Step 5-1: タブ切り替えイベント
       document.getElementById('tab-btn-log').onclick = () => switchTab('log');
       document.getElementById('tab-btn-todo').onclick = () => switchTab('todo');
       document.getElementById('tab-btn-archive').onclick = () => switchTab('archive');
 
-      // Step 4-2: TODO追加時の初期値を '🔲 ' に変更
       document.getElementById('btn-add-todo').onclick = () => {
         state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ', status: 'ACTIVE', depth: 0, updatedAt: Date.now() });
         renderTodoList();
@@ -724,63 +681,40 @@
         }
       };
 
-      // Step 4-2: 絵文字パレットの挿入ロジック
-      const handleEmojiClick = (e) => {
-        e.preventDefault(); // 入力欄からフォーカスが外れる(blur)のを防ぎ、再描画を抑止
-        if (!lastFocusedTarget) return;
+      // Step 4: 小型パレット用の直感的な絵文字挿入イベント実装
+      const handleMiniEmojiClick = (e) => {
+        if (e.target && e.target.classList.contains('mini-icon-btn')) {
+          e.preventDefault(); // フォーカスが外れるのを防ぐ
+          const emoji = e.target.textContent;
+          const palette = e.target.parentElement;
+          
+          // パレットのすぐ上にある入力欄を取得
+          const targetInput = palette.previousElementSibling;
 
-        const emoji = e.target.textContent;
-
-        if (lastFocusedTarget.tagName && lastFocusedTarget.tagName.toLowerCase() === 'textarea') {
-          const text = lastFocusedTarget.value;
-          lastFocusedTarget.value = emoji + text;
-          lastFocusedTarget.focus();
-          lastFocusedTarget.selectionStart = emoji.length;
-          lastFocusedTarget.selectionEnd = emoji.length;
-        } else if (lastFocusedTarget.isContentEditable) {
-          const text = lastFocusedTarget.innerText;
-          lastFocusedTarget.innerText = emoji + text;
-          lastFocusedTarget.focus();
-
-          // カーソル位置を挿入した絵文字の直後にセット
-          const selection = window.getSelection();
-          const range = document.createRange();
-          if (lastFocusedTarget.firstChild) {
-            try {
-              range.setStart(lastFocusedTarget.firstChild, emoji.length);
-              range.collapse(true);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            } catch (err) { console.error("Cursor set error", err); }
+          if (targetInput && targetInput.tagName === 'TEXTAREA') {
+            const text = targetInput.value;
+            targetInput.value = emoji + text;
+            targetInput.focus();
+            targetInput.selectionStart = emoji.length;
+            targetInput.selectionEnd = emoji.length;
           }
         }
       };
+      
+      document.addEventListener('mousedown', handleMiniEmojiClick);
+      document.addEventListener('touchstart', handleMiniEmojiClick, { passive: false });
 
-      // ボタンにイベントをバインド（モバイル対応のため touchstart も付与）
-      document.querySelectorAll('.emoji-btn').forEach(btn => {
-        btn.addEventListener('mousedown', handleEmojiClick);
-        btn.addEventListener('touchstart', handleEmojiClick, { passive: false });
-      });
-
-      // Step 4-3: モバイル(iOS)キーボード連動対応 (visualViewport)
-      if (window.visualViewport) {
-        const palette = document.getElementById('mobile-emoji-palette');
-        const onViewportChange = () => {
-          // 画面本来の高さと、キーボード等に押し上げられて狭くなった高さの差分を計算
-          const offset = window.innerHeight - window.visualViewport.height;
-          
-          // 差分が50px以上ならキーボードが出ているとみなしてパレットを押し上げる
-          if (offset > 50) {
-            palette.style.transform = `translateY(-${offset}px)`;
-          } else {
-            palette.style.transform = 'translateY(0)';
-          }
-        };
-
-        // リサイズ（キーボード開閉）とスクロールの両方を監視
-        window.visualViewport.addEventListener('resize', onViewportChange);
-        window.visualViewport.addEventListener('scroll', onViewportChange);
-      }
+      // Step 1: 手動同期ボタンのクリックイベント
+      document.getElementById('btn-manual-sync').onclick = () => {
+        const btn = document.getElementById('btn-manual-sync');
+        btn.style.transform = 'rotate(360deg)'; // クルッと回すアニメーション
+        
+        // クラウドから強制フェッチ
+        fetchCloudData().finally(() => {
+          // 回転アニメーションのリセット
+          setTimeout(() => btn.style.transform = 'rotate(0deg)', 300);
+        });
+      };
 
       setInterval(() => {
         if (!isDirty) {
