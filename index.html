@@ -90,6 +90,11 @@
     .entry-item:hover .action-icon-btn, .todo-item:hover .action-icon-btn { opacity: 0.7; }
     .action-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
     
+    /* Step 1: 共通削除ボタンのスタイル定義 */
+    .delete-icon-btn { background: transparent; border: none; font-size: 16px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s, transform 0.1s; padding: 2px 8px; color: var(--danger-color); }
+    .entry-item:hover .delete-icon-btn, .todo-item:hover .delete-icon-btn { opacity: 0.7; }
+    .delete-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
+    
     /* Step 2: Reduce top margins for the TODO INBOX section in Log tab (24px/16px -> 12px/8px) */
     .log-todo-section { margin-top: 12px; padding-top: 8px; border-top: 2px dashed var(--border-color); }
     .log-todo-header { font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 12px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
@@ -430,13 +435,15 @@
         
         let entriesHtml = (dayLogs[h] || []).map((e, idx) => {
           if (e.deletedAt) return ''; // Skip deleted ones
+          
+          // Refactored to use e.id instead of index for safe data manipulation
           return `
             <div class="entry-item">
               <div class="entry-text" contenteditable="true" 
-                   onfocus="this.innerText = state.logs['${state.currentDateStr}']['${h}'][${idx}].text; lastFocusedTarget = this;"
+                   onfocus="this.innerText = state.logs['${state.currentDateStr}']['${h}'].find(x => x.id === '${e.id}').text; lastFocusedTarget = this;"
                    onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
-                   onblur="updateEntryText('${state.currentDateStr}', ${h}, ${idx}, this.innerText)">${parseMarkdown(e.text)}</div>
-              <button class="action-icon-btn" title="TODOに追加" onclick="sendToTodo('${state.currentDateStr}', ${h}, ${idx})">🔲</button>
+                   onblur="updateEntryText('${state.currentDateStr}', ${h}, '${e.id}', this.innerText)">${parseMarkdown(e.text)}</div>
+              <button class="action-icon-btn" title="TODOに追加" onclick="sendToTodo('${state.currentDateStr}', ${h}, '${e.id}')">🔲</button>
             </div>
           `;
         }).join('');
@@ -524,8 +531,9 @@
       }
     }
 
-    function updateEntryText(date, hour, idx, newText) {
-      const entry = state.logs[date]?.[hour]?.[idx];
+    // Refactored to use ID instead of index
+    function updateEntryText(date, hour, id, newText) {
+      const entry = state.logs[date]?.[hour]?.find(e => e.id === id);
       if (!entry) return;
       const cleanText = newText.trim();
       if (cleanText === entry.text) { renderDailyLog(); return; } 
@@ -545,8 +553,10 @@
       renderDailyLog();
     }
 
-    function sendToTodo(date, hour, idx) {
-      const entry = state.logs[date][hour][idx];
+    // Refactored to use ID instead of index
+    function sendToTodo(date, hour, id) {
+      const entry = state.logs[date]?.[hour]?.find(e => e.id === id);
+      if (!entry) return;
       const cleanText = entry.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
       state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ' + cleanText, status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
       scheduleSave();
@@ -631,7 +641,7 @@
                  onkeydown="handleTodoKeyDownPWA(event, this, '${todo.id}', ${idx})"
                  onblur="updateTodoText('${todo.id}', this.innerText)">${parseMarkdown(todo.text)}</div>
             <button class="action-icon-btn" title="今の時間に記録" onclick="sendToLog('${todo.id}')">📝</button>
-            <button onclick="deleteTodo('${todo.id}')" style="background:none; border:none; color:var(--danger-color); font-size:16px; cursor:pointer; opacity:0.3; padding-left:8px;">×</button>
+            <button class="delete-icon-btn" title="削除" onclick="deleteTodo('${todo.id}')">×</button>
           </div>
         `;
         if(container) container.insertAdjacentHTML('beforeend', itemHtml);
@@ -673,6 +683,17 @@
         todo.updatedAt = Date.now();
         scheduleSave(); renderTodoList();
         showUndo("TODOを削除しました");
+      }
+    }
+
+    function deleteLogEntry(date, hour, id) {
+      const entry = state.logs[date]?.[hour]?.find(e => e.id === id);
+      if (entry) {
+        lastDeleted = { type: 'log', date: date, hour: hour, id: entry.id };
+        entry.deletedAt = Date.now();
+        entry.updatedAt = Date.now();
+        scheduleSave(); renderDailyLog();
+        showUndo("ログを削除しました");
       }
     }
 
@@ -783,13 +804,24 @@
       };
       
       document.getElementById('btn-undo').onclick = () => {
-        if (lastDeleted && lastDeleted.type === 'todo') {
+        if (!lastDeleted) return;
+
+        if (lastDeleted.type === 'todo') {
           const todo = state.todos.find(t => t.id === lastDeleted.id);
           if (todo) {
             todo.deletedAt = null;
             todo.updatedAt = Date.now();
             lastDeleted = null;
             renderTodoList(); scheduleSave();
+            document.getElementById('undo-snackbar').classList.remove('show');
+          }
+        } else if (lastDeleted.type === 'log') {
+          const entry = state.logs[lastDeleted.date]?.[lastDeleted.hour]?.find(e => e.id === lastDeleted.id);
+          if (entry) {
+            entry.deletedAt = null;
+            entry.updatedAt = Date.now();
+            lastDeleted = null;
+            renderDailyLog(); scheduleSave();
             document.getElementById('undo-snackbar').classList.remove('show');
           }
         }
