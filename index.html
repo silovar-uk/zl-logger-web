@@ -2,18 +2,14 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  
-  <!-- 
-    PWA / Mobile Meta Tags 
-  -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="ZL-Logger">
-  <meta name="theme-color" content="#000000">
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Zero-Latency Logger (PWA)</title>
   
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#0ea5e9">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/4345/4345517.png">
+
   <style>
     /**
      * Design System Tokens
@@ -21,7 +17,7 @@
     :root {
       --bg-base: #fafaf9; --bg-surface: #ffffff; --text-main: #44403c;
       --text-muted: #a8a29e; --border-color: #e7e5e4; --accent-color: #0ea5e9; --danger-color: #ef4444;
-      --safe-area-top: env(safe-area-inset-top);
+      --safe-area-top: env(safe-area-inset-top, 0px);
     }
     @media (prefers-color-scheme: dark) {
       :root { --bg-base: #000000; --bg-surface: #111111; --text-main: #e7e5e4; --text-muted: #78716c; --border-color: #292524; --accent-color: #38bdf8; --danger-color: #f87171; }
@@ -29,12 +25,10 @@
 
     /* Base Layout */
     *, *::before, *::after { box-sizing: border-box; }
-    /* Step 3: Reduce global line-height from 1.5 to 1.4 */
-    body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: var(--bg-base); color: var(--text-main); height: 100dvh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; line-height: 1.4; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-base); color: var(--text-main); height: 100dvh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; line-height: 1.4; }
 
     /* UI Components Style */
     .app-header { flex-shrink: 0; background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 100; padding-top: var(--safe-area-top); }
-    /* Step 3: Reduce top header padding */
     .header-top { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; }
     .logo-container { display: flex; align-items: baseline; gap: 8px; }
     .logo { font-weight: 800; font-size: 16px; letter-spacing: -0.025em; }
@@ -47,41 +41,31 @@
     .date-item.active { background-color: var(--bg-surface); box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid var(--accent-color); }
     .date-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
     .date-num { font-size: 16px; font-weight: 700; margin-top: 2px; }
-    .activity-dots { display: flex; gap: 2px; margin-top: 4px; }
-    .dot { width: 4px; height: 4px; border-radius: 50%; background-color: var(--border-color); }
-    .dot.level-1 { background-color: var(--accent-color); opacity: 0.3; }
-    .dot.level-2 { background-color: var(--accent-color); opacity: 0.6; }
-    .dot.level-3 { background-color: var(--accent-color); opacity: 1; }
 
     /* Timeline & Input Pad Style */
     .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding-bottom: 24px; }
     .timeline { position: relative; padding-left: 24px; margin-left: 12px; border-left: 2px solid var(--border-color); margin-top: 16px; }
-    /* Step 1: タイムライン要素間のマージンを圧縮 (24px -> 16px) */
     .timeline-item { position: relative; margin-bottom: 16px; }
     .timeline-item.collapsed .time-body { display: none; }
     .timeline-dot { position: absolute; left: -30px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent-color); border: 2px solid var(--bg-base); }
     .timeline-item.collapsed .timeline-dot { background-color: var(--text-muted); }
     
-    /* Step 1: 時間見出しの下マージンを圧縮 (8px -> 4px) */
     .time-header { display: flex; align-items: center; gap: 6px; cursor: pointer; margin-bottom: 4px; padding: 4px 8px; border-radius: 6px; margin-left: -8px; transition: background-color 0.1s; }
     .time-header:hover { background-color: var(--border-color); }
     .toggle-icon { font-size: 10px; color: var(--text-muted); transition: transform 0.2s ease; display: inline-block; }
     .timeline-item.collapsed .toggle-icon { transform: rotate(-90deg); }
-    
     .time-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; }
-    /* Step 1: ログ要素の下マージンを圧縮 (6px -> 2px) */
+    
     .entry-item { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; margin-bottom: 2px; color: var(--text-main); }
     .entry-item::before { content: "•"; color: var(--text-muted); font-weight: bold; flex-shrink: 0; }
     .entry-text { flex: 1; word-break: break-word; min-height: 1.5em; outline: none; }
     
-    /* Step 3: Reduce min-height and padding of the input textarea */
     .input-pad { width: 100%; min-height: 36px; padding: 8px 10px; border-radius: 12px; background-color: var(--bg-surface); border: 1px solid var(--border-color); font-size: 15px; color: var(--text-main); outline: none; resize: none; transition: all 0.2s ease; margin-top: 4px; }
     .input-pad:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
     .hour-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 16px; }
     .hour-chip { padding: 10px 0; text-align: center; border-radius: 8px; font-size: 12px; font-weight: 600; background-color: var(--bg-surface); border: 1px solid var(--border-color); cursor: pointer; color: var(--text-main); }
     .hour-chip.has-content { border-color: var(--accent-color); color: var(--accent-color); }
     
-    /* Step 2: Reduce padding for TODO items (12px 16px -> 8px 16px) */
     .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-surface); }
     .todo-item.done { opacity: 0.5; }
     .todo-item.done .todo-text { text-decoration: line-through; color: var(--text-muted); }
@@ -90,12 +74,10 @@
     .entry-item:hover .action-icon-btn, .todo-item:hover .action-icon-btn { opacity: 0.7; }
     .action-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
     
-    /* Step 1: 共通削除ボタンのスタイル定義 */
     .delete-icon-btn { background: transparent; border: none; font-size: 16px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s, transform 0.1s; padding: 2px 8px; color: var(--danger-color); }
     .entry-item:hover .delete-icon-btn, .todo-item:hover .delete-icon-btn { opacity: 0.7; }
     .delete-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
     
-    /* Step 2: Reduce top margins for the TODO INBOX section in Log tab (24px/16px -> 12px/8px) */
     .log-todo-section { margin-top: 12px; padding-top: 8px; border-top: 2px dashed var(--border-color); }
     .log-todo-header { font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 12px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
 
@@ -103,7 +85,6 @@
     .todo-text[contenteditable="true"]:focus { background: var(--bg-base); outline: 1px solid var(--border-color); }
 
     /* Utility Styles */
-    /* Step 3: Reduce pane header padding */
     .pane-header { padding: 8px 16px; font-size: 12px; font-weight: 800; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; color: var(--text-muted); text-transform: uppercase; }
     .action-btn { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; font-size: 11px; font-weight: 600; padding: 6px 10px; cursor: pointer; color: var(--text-main); }
     .action-btn.primary { background: var(--accent-color); color: white; border: none; }
@@ -115,7 +96,6 @@
 
     /* Tab Styles */
     .tab-nav { display: flex; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 60; }
-    /* Step 3: Tighten tab button padding */
     .tab-btn { flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 800; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
     .tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
     .tab-content { display: none; }
@@ -128,7 +108,7 @@
     .mini-icon-btn:active { transform: scale(0.9); }
 
     .md-red-bold { color: var(--danger-color); font-weight: 800; }
-    /* Step 2: Reduce padding for Archive items (12px 16px -> 8px 16px) */
+    
     .archive-item { padding: 8px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
     .archive-date { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-weight: 700; letter-spacing: 0.05em; }
     .archive-text { font-size: 14px; line-height: 1.5; color: var(--text-main); word-break: break-word; }
@@ -136,7 +116,6 @@
   </style>
 </head>
 <body>
-
   <header class="app-header">
     <div class="header-top">
       <div class="logo-container">
@@ -144,11 +123,11 @@
         <div style="display: flex; align-items: center; gap: 4px;">
           <span id="sync-status">初期化中...</span>
           <button id="btn-manual-sync" style="background:none; border:none; cursor:pointer; font-size:12px; color:var(--text-muted); padding:2px; transition: transform 0.3s;" title="手動同期">🔄</button>
+          <button id="btn-settings" style="background:none; border:none; cursor:pointer; font-size:14px; color:var(--text-muted); padding:2px; margin-left:4px;" title="設定・メンテナンス">⚙️</button>
         </div>
       </div>
       <div style="display: flex; gap: 8px;">
-        <button class="action-btn" id="btn-add-past">＋ 過去の記録</button>
-        <button class="action-btn" id="btn-copy-output">📋 出力</button>
+        <button class="action-btn" id="btn-open-db" title="スプレッドシートを開く">📊 DB</button>
       </div>
     </div>
     
@@ -167,6 +146,7 @@
 
   <main class="main-container" id="main-container">
     
+    <!-- DAILY LOG -->
     <div id="tab-log" class="tab-content active">
       <div id="hour-selector" class="hidden">
         <div class="pane-header">SELECT HOUR</div>
@@ -174,76 +154,99 @@
       </div>
       <section class="pane">
         <div class="pane-header">DAILY LOG</div>
-        <div id="log-content" style="padding: 0 16px 16px 16px;"></div>
+        <div class="pane-content">
+          <div class="timeline" id="log-content"></div>
+        </div>
         
         <div class="log-todo-section">
           <div class="log-todo-header">
             <span>TODO INBOX</span>
           </div>
-          <div id="log-todo-content" style="padding-bottom: 32px;"></div>
+          <div id="log-todo-content">
+            <!-- JSでTODOリストをここに複製描画します -->
+          </div>
         </div>
       </section>
     </div>
 
+    <!-- TODO -->
     <div id="tab-todo" class="tab-content">
-      <section class="pane">
+      <section class="pane todo-pane" id="todo-pane">
         <div class="pane-header">
-          <span>TODO INBOX</span>
+          <span>TODO Inbox</span>
           <button class="action-btn primary" id="btn-add-todo">＋ TODO追加</button>
         </div>
-        <div id="todo-content"></div>
+        <div class="pane-content" id="todo-content">
+          <!-- TODOリスト描画エリア -->
+        </div>
       </section>
     </div>
 
+    <!-- ARCHIVE -->
     <div id="tab-archive" class="tab-content">
-      <section class="pane">
+      <section class="pane archive-pane" id="archive-pane">
         <div class="pane-header">ARCHIVE (📦)</div>
-        <div id="archive-content"></div>
+        <div class="pane-content" id="archive-content">
+          <!-- アーカイブリスト描画エリア -->
+        </div>
       </section>
     </div>
 
   </main>
 
+  <!-- Settings / Maintenance Modal -->
+  <div id="settings-modal" class="hidden" style="position:fixed; top:0; left:0; width:100vw; height:100dvh; background:rgba(0,0,0,0.5); z-index:999; display:flex; justify-content:center; align-items:center;">
+    <div style="background:var(--bg-surface); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="margin:0; font-size:16px;">設定・メンテナンス</h2>
+        <button id="btn-close-settings" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--text-muted);">✕</button>
+      </div>
+      <div style="margin-bottom:24px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer;">
+          <input type="checkbox" id="toggle-auto-sync" checked>
+          自動同期を有効にする
+        </label>
+        <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">※オフにすると手動同期(🔄)のみになります</p>
+      </div>
+      <div style="border-top:1px solid var(--border-color); padding-top:16px; display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size:12px; font-weight:bold; color:var(--danger-color); margin:0;">危険な操作 (データ削除)</p>
+        <button id="btn-clear-ui" class="action-btn" style="border-color:var(--danger-color); color:var(--danger-color);">画面の表示をクリア</button>
+        <button id="btn-clear-local" class="action-btn" style="border-color:var(--danger-color); color:var(--danger-color);">ローカルデータを完全消去</button>
+        <button id="btn-clear-gas" class="action-btn" style="background:var(--danger-color); color:white; border:none;">クラウド(GAS)のデータを初期化</button>
+      </div>
+    </div>
+  </div>
+
   <div id="undo-snackbar">
-    <span id="undo-message" style="font-size: 13px; font-weight: 500;">削除しました</span>
+    <span id="undo-message" style="font-size:13px;">削除しました</span>
     <button id="btn-undo">元に戻す</button>
   </div>
 
   <script>
     /**
-     * --- 状態管理、保存、描画、編集 ---
+     * Zero-Latency Logger - PWA JavaScript Logic
      */
     const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyMkNvgGRdZUR-OPSD_fnC41xz9rWZFpV9vUvVqvJMela8qBrp-9antY3XORssnaevu/exec';
-    let state = { logs: {}, todos: [], collapsedHours: {}, currentDateStr: "" };
-    let isDirty = false; let syncTimer = null; let saveTimeout = null; let lastDeleted = null;
-    let isFetching = false; // GAS受信中フラグ
-    let lastFocusedTarget = null; // 最後にフォーカスされた入力欄
 
-    function parseMarkdown(text) {
-      if (!text) return '';
-      let escaped = text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-      return escaped.replace(/\*\*(.*?)\*\*/g, '<span class="md-red-bold">$1</span>');
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then(reg => {
+          console.log('ServiceWorker registered:', reg.scope);
+        }).catch(err => console.log('ServiceWorker registration failed:', err));
+      });
     }
 
-    async function initData() {
-      const saved = localStorage.getItem('zl_logger_state');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          state.logs = migrateData(parsed.logs || {});
-          state.todos = Array.isArray(parsed.todos) ? parsed.todos : [];
-          state.collapsedHours = parsed.collapsedHours || {};
-        } catch (e) { console.error("Failed to load state", e); }
-      }
-      state.currentDateStr = getTodayStr();
-      renderAll();
-      fetchCloudData();
-    }
+    let isAutoSyncEnabled = true;
+    let state = {
+      currentDateStr: '',
+      logs: {},
+      todos: [],
+      collapsedHours: {}
+    };
+    let isDirty = false;
+    let syncTimer = null;
+    let lastDeleted = null;
 
     function migrateData(logs) {
       const newLogs = {};
@@ -257,7 +260,7 @@
               text: text.replace(/^-\s*/, ''), 
               depth: 0, 
               updatedAt: Date.now(),
-              deletedAt: null 
+              deletedAt: null
             }));
           } else { 
             newLogs[date][hour] = content.map(item => ({
@@ -269,39 +272,6 @@
         }
       }
       return newLogs;
-    }
-
-    function getTodayStr() {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    }
-
-    function scheduleSave() {
-      isDirty = true; document.getElementById('sync-status').textContent = "変更あり...";
-      if (saveTimeout) clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(() => saveToLocal(), 1000);
-    }
-
-    function saveToLocal() {
-      if (isFetching) return;
-      localStorage.setItem('zl_logger_state', JSON.stringify(state));
-      isDirty = false; document.getElementById('sync-status').textContent = "保存済み";
-      triggerGASSync();
-    }
-
-    async function triggerGASSync() {
-      if (!GAS_WEB_APP_URL) return;
-      if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(async () => {
-        try {
-          await fetch(GAS_WEB_APP_URL, {
-            method: 'POST', mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: "SYNC_FULL_STATE", data: { logs: state.logs, todos: state.todos } })
-          });
-          document.getElementById('sync-status').textContent = "クラウド同期済み";
-        } catch (e) { document.getElementById('sync-status').textContent = "同期失敗"; }
-      }, 2000);
     }
 
     function mergeLogs(localLogs, cloudLogs) {
@@ -348,305 +318,254 @@
       return merged;
     }
 
+    let isFetching = false;
     async function fetchCloudData() {
-      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('YOUR_GAS')) return;
-      document.getElementById('sync-status').textContent = "クラウド受信中...";
+      if (isFetching || !isAutoSyncEnabled) return;
+      const syncStatus = document.getElementById('sync-status');
+      if (syncStatus) syncStatus.textContent = "クラウド受信中...";
+      isFetching = true;
+
       try {
         const response = await fetch(GAS_WEB_APP_URL);
-        const result = await response.json();
-        
-        if (result.status === 'success' && result.data) {
-          isFetching = true;
-          try {
-            const cloudLogs = migrateData(result.data.logs || {});
-            const cloudTodos = result.data.todos || [];
-            state.logs = mergeLogs(state.logs, cloudLogs);
-            state.todos = mergeTodos(state.todos, cloudTodos);
-          } finally {
-            isFetching = false;
-          }
+        const data = await response.json();
 
-          localStorage.setItem('zl_logger_state', JSON.stringify(state));
-          renderAll();
-          document.getElementById('sync-status').textContent = "同期完了";
+        if (data && data.status === 'success' && data.data) {
+          const cloudLogs = migrateData(data.data.logs || {});
+          const cloudTodos = data.data.todos || [];
+          state.logs = mergeLogs(state.logs, cloudLogs);
+          state.todos = mergeTodos(state.todos, cloudTodos);
+          
+          localStorage.setItem('appState', JSON.stringify(state));
+          refreshUI();
+          if (syncStatus) syncStatus.textContent = "同期完了";
         } else {
-          document.getElementById('sync-status').textContent = "受信エラー";
+          if (syncStatus) syncStatus.textContent = "受信エラー";
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+        if (syncStatus) syncStatus.textContent = "オフライン";
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    function parseMarkdown(text) {
+      if (!text) return '';
+      let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      return escaped.replace(/\*\*(.*?)\*\*/g, '<span class="md-red-bold">$1</span>');
+    }
+
+    async function initData() {
+      const now = new Date();
+      state.currentDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      try {
+        const stored = localStorage.getItem('appState');
+        if (stored) {
+          const loaded = JSON.parse(stored);
+          state.logs = loaded.logs || {};
+          state.todos = loaded.todos || [];
+          state.collapsedHours = loaded.collapsedHours || {};
+        }
+      } catch (e) { console.error("Load error", e); }
+      refreshUI();
+      fetchCloudData();
+    }
+
+    function scheduleSave() {
+      isDirty = true;
+      document.getElementById('sync-status').textContent = "変更あり";
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(saveData, 2000);
+    }
+
+    async function saveData() {
+      if (!isDirty) return;
+      try {
+        localStorage.setItem('appState', JSON.stringify(state));
+        isDirty = false;
+        document.getElementById('sync-status').textContent = "同期済み";
+        
+        if (GAS_WEB_APP_URL && !GAS_WEB_APP_URL.includes('YOUR_GAS')) {
+          fetch(GAS_WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'SYNC_FULL_STATE', data: { logs: state.logs, todos: state.todos } })
+          }).catch(e => console.error(e));
         }
       } catch (e) {
-        console.error("Fetch error:", e);
-        document.getElementById('sync-status').textContent = "オフライン";
+        console.error("Save error", e);
+        document.getElementById('sync-status').textContent = "エラー";
       }
     }
 
-    function renderAll() { renderCalendar(); renderDailyLog(); renderTodoList(); renderHourSelector(); renderArchive(); }
+    function moveDate(offset) {
+      const d = new Date(state.currentDateStr);
+      d.setDate(d.getDate() + offset);
+      state.currentDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      refreshUI();
+    }
+
+    function getTodayStr() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    }
 
     function renderCalendar() {
-      const ribbon = document.getElementById('calendar-ribbon');
-      ribbon.innerHTML = '';
-      const center = new Date(state.currentDateStr);
-      for (let i = -7; i <= 7; i++) {
-        const d = new Date(center); d.setDate(d.getDate() + i);
-        const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const item = document.createElement('div');
-        item.className = `date-item ${dStr === state.currentDateStr ? 'active' : ''}`;
-        item.onclick = () => { state.currentDateStr = dStr; renderAll(); };
-        const dayLabels = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-        item.innerHTML = `
-          <div class="date-label">${dayLabels[d.getDay()]}</div>
-          <div class="date-num">${d.getDate()}</div>
-          <div class="activity-dots">${getActivityDots(dStr)}</div>
-        `;
-        ribbon.appendChild(item);
-        if (dStr === state.currentDateStr) {
-          setTimeout(() => item.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }), 100);
-        }
-      }
-    }
-
-    function getActivityDots(dateStr) {
-      const dayLogs = state.logs[dateStr] || {};
-      let count = 0; Object.values(dayLogs).forEach(h => {
-        const activeEntries = (h || []).filter(e => !e.deletedAt);
-        count += activeEntries.length;
-      });
-      if (count === 0) return '';
-      const level = count > 8 ? 3 : count > 4 ? 2 : 1;
-      let dotsHtml = ''; for(let i=0; i<level; i++) dotsHtml += `<div class="dot level-${level}"></div>`;
-      return dotsHtml;
-    }
-
-    function renderDailyLog() {
-      const container = document.getElementById('log-content');
+      const container = document.getElementById('calendar-ribbon');
+      if (!container) return;
       container.innerHTML = '';
-      const dayLogs = state.logs[state.currentDateStr] || {};
-      const nowHour = new Date().getHours();
-      const timeline = document.createElement('div');
-      timeline.className = 'timeline';
-
-      for (let h = 0; h < 24; h++) {
-        const entries = (dayLogs[h] || []).filter(e => !e.deletedAt);
-        
-        const isNow = (h === nowHour && state.currentDateStr === getTodayStr());
-        const isCollapsed = state.collapsedHours[`${state.currentDateStr}-${h}`] ?? true;
-        if (entries.length === 0 && !isNow) continue;
-
-        const section = document.createElement('div');
-        section.className = `timeline-item ${isCollapsed && !isNow ? 'collapsed' : ''}`;
-        
-        let entriesHtml = (dayLogs[h] || []).map((e, idx) => {
-          if (e.deletedAt) return ''; // Skip deleted ones
-          
-          // Refactored to use e.id instead of index for safe data manipulation
-          return `
-            <div class="entry-item">
-              <div class="entry-text" contenteditable="true" 
-                   onfocus="this.innerText = state.logs['${state.currentDateStr}']['${h}'].find(x => x.id === '${e.id}').text; lastFocusedTarget = this;"
-                   onkeydown="if(typeof handleEditorKeyDown === 'function') handleEditorKeyDown(event, this)"
-                   onblur="updateEntryText('${state.currentDateStr}', ${h}, '${e.id}', this.innerText)">${parseMarkdown(e.text)}</div>
-              <button class="action-icon-btn" title="TODOに追加" onclick="sendToTodo('${state.currentDateStr}', ${h}, '${e.id}')">🔲</button>
-            </div>
-          `;
-        }).join('');
-
-        section.innerHTML = `
-          <div class="timeline-dot"></div>
-          <div class="time-header" onclick="toggleHour('${h}')" title="クリックで展開/折りたたみ">
-            <span class="toggle-icon">▼</span>
-            <span class="time-label">${String(h).padStart(2,'0')}:00</span>
-            ${isNow ? '<span style="font-size:9px; color:var(--accent-color); font-weight:800; margin-left: 4px;">NOW</span>' : ''}
-          </div>
-          <div class="time-body">
-            ${entriesHtml}
-            ${isNow || !isCollapsed ? `
-              <textarea class="input-pad" placeholder="なにか書く... (Enterで追加)" 
-                        onfocus="lastFocusedTarget = this;"
-                        onkeydown="handleLogInput(event, ${h})"></textarea>
-              
-              <div class="inline-emoji-palette">
-                <button class="mini-icon-btn" title="開始/進行中">🟢</button>
-                <button class="mini-icon-btn" title="電話/会議">📞</button>
-                <button class="mini-icon-btn" title="相談/会話">🗣️</button>
-                <button class="mini-icon-btn" title="メール/チャット">📧</button>
-                <button class="mini-icon-btn" title="重要/トラブル">🔥</button>
-                <button class="mini-icon-btn" title="アイデア/ひらめき">💡</button>
-                <button class="mini-icon-btn" title="待ち/保留">⏳</button>
-                <button class="mini-icon-btn" title="思考/検討">💭</button>
-                <button class="mini-icon-btn" title="休憩/離席">💤</button>
-                <button class="mini-icon-btn" title="質問/依頼">🙋</button>
-                <button class="mini-icon-btn" title="TODO">🔲</button>
-                <button class="mini-icon-btn" title="完了">✅</button>
-                <button class="mini-icon-btn" title="スキップ/先送り">⏭️</button>
-              </div>
-            ` : ''}
-          </div>
-        `;
-        timeline.appendChild(section);
-      }
-      container.appendChild(timeline);
-    }
-
-    function handleEditorKeyDown(e, el) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-        e.preventDefault(); 
-        if (el.tagName && el.tagName.toLowerCase() === 'textarea') {
-          const start = el.selectionStart;
-          const end = el.selectionEnd;
-          const text = el.value;
-          const selected = text.substring(start, end);
-          el.value = text.substring(0, start) + '**' + selected + '**' + text.substring(end);
-          el.selectionStart = start + 2;
-          el.selectionEnd = end + 2;
-        } else if (el.isContentEditable) {
-          const selection = window.getSelection();
-          if (!selection.rangeCount) return;
-          const range = selection.getRangeAt(0);
-          const selectedText = range.toString();
-          
-          const textNode = document.createTextNode('**' + selectedText + '**');
-          range.deleteContents();
-          range.insertNode(textNode);
-          
-          range.setStart(textNode, selectedText.length + 4); 
-          range.collapse(true);
-          selection.removeAllRanges();
-          selection.addRange(range);
-        }
-      }
-    }
-
-    function handleLogInput(e, hour) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-        handleEditorKeyDown(e, e.target);
-        return;
-      }
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const text = e.target.value.trim();
-        if (!text) return;
-        if (!state.logs[state.currentDateStr]) state.logs[state.currentDateStr] = {};
-        if (!state.logs[state.currentDateStr][hour]) state.logs[state.currentDateStr][hour] = [];
-        state.logs[state.currentDateStr][hour].push({ id: 'log_' + Date.now(), text: text, depth: 0, updatedAt: Date.now(), deletedAt: null });
-        e.target.value = ''; scheduleSave(); renderDailyLog();
-        setTimeout(() => { const pads = document.querySelectorAll('.input-pad'); pads[pads.length - 1]?.focus(); }, 10);
-      }
-    }
-
-    // Refactored to use ID instead of index
-    function updateEntryText(date, hour, id, newText) {
-      const entry = state.logs[date]?.[hour]?.find(e => e.id === id);
-      if (!entry) return;
-      const cleanText = newText.trim();
-      if (cleanText === entry.text) { renderDailyLog(); return; } 
-      if (cleanText === "") { 
-        entry.deletedAt = Date.now();
-        entry.updatedAt = Date.now();
-      } else { 
-        entry.text = cleanText; 
-        entry.updatedAt = Date.now(); 
-      }
-      scheduleSave(); renderAll();
-    }
-
-    function toggleHour(hour) {
-      const key = `${state.currentDateStr}-${hour}`;
-      state.collapsedHours[key] = !(state.collapsedHours[key] ?? true);
-      renderDailyLog();
-    }
-
-    // Refactored to use ID instead of index
-    function sendToTodo(date, hour, id) {
-      const entry = state.logs[date]?.[hour]?.find(e => e.id === id);
-      if (!entry) return;
-      const cleanText = entry.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
-      state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ' + cleanText, status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
-      scheduleSave();
-      renderTodoList();
-    }
-
-    function sendToLog(id) {
-      const todo = state.todos.find(t => t.id === id);
-      if (!todo) return;
-      const currentHour = new Date().getHours();
-      const today = getTodayStr();
-      if (!state.logs[today]) state.logs[today] = {};
-      if (!state.logs[today][currentHour]) state.logs[today][currentHour] = [];
-      const cleanText = todo.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
-      state.logs[today][currentHour].push({ id: 'log_' + Date.now(), text: '✅ ' + cleanText, depth: 0, updatedAt: Date.now(), deletedAt: null });
-      scheduleSave();
-      renderAll();
-    }
-
-    function handleTodoKeyDownPWA(e, el, id, idx) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        el.blur();
-        setTimeout(() => {
-          const allTodos = document.querySelectorAll('#todo-content .todo-text');
-          if (idx + 1 < allTodos.length) {
-            allTodos[idx + 1].focus();
-          } else {
-            document.getElementById('btn-add-todo').click();
-          }
-        }, 50);
+      const baseDate = new Date(state.currentDateStr);
+      for (let i = -3; i <= 3; i++) {
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + i);
+        const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const div = document.createElement('div');
+        div.className = `date-item ${i === 0 ? 'active' : ''}`;
+        div.onclick = () => { state.currentDateStr = dStr; refreshUI(); };
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        div.innerHTML = `<div class="date-label">${dayNames[d.getDay()]}</div><div class="date-num">${d.getDate()}</div>`;
+        container.appendChild(div);
       }
     }
 
     function renderHourSelector() {
-      const grid = document.getElementById('hour-grid');
-      grid.innerHTML = '';
-      const dayLogs = state.logs[state.currentDateStr] || {};
-      for (let h = 0; h < 24; h++) {
-        const hasContent = (dayLogs[h] || []).some(e => !e.deletedAt);
+      const container = document.getElementById('hour-selector');
+      if (!container) return;
+      container.innerHTML = '';
+      for (let i = 0; i < 24; i++) {
         const chip = document.createElement('div');
-        chip.className = `hour-chip ${hasContent ? 'has-content' : ''}`;
-        chip.textContent = `${h}:00`;
+        chip.className = 'hour-chip';
+        chip.textContent = `${i}:00`;
         chip.onclick = () => {
-          state.collapsedHours[`${state.currentDateStr}-${h}`] = false;
           document.getElementById('hour-selector').classList.add('hidden');
-          renderDailyLog();
-          setTimeout(() => { document.querySelectorAll('.input-pad').forEach(p => { if (p.closest('.timeline-item').querySelector('.time-label').textContent === `${String(h).padStart(2,'0')}:00`) { p.scrollIntoView({behavior:'smooth',block:'center'}); p.focus(); } }); }, 100);
+          const text = prompt(`${i}:00 の記録を追加:`);
+          if (text) {
+            if (!state.logs[state.currentDateStr]) state.logs[state.currentDateStr] = {};
+            if (!state.logs[state.currentDateStr][i]) state.logs[state.currentDateStr][i] = [];
+            state.logs[state.currentDateStr][i].push({ id: 'log_' + Date.now().toString(), text: text, depth: 0, updatedAt: Date.now(), deletedAt: null });
+            scheduleSave();
+            refreshUI();
+          }
         };
-        grid.appendChild(chip);
+        container.appendChild(chip);
       }
     }
 
-    function renderTodoList() {
-      const container = document.getElementById('todo-content');
-      const logTodoContainer = document.getElementById('log-todo-content');
+    function renderDailyLog() {
+      const container = document.getElementById('log-content');
+      if (!container) return;
+      container.innerHTML = '';
       
-      if(container) container.innerHTML = '';
-      if(logTodoContainer) logTodoContainer.innerHTML = '';
+      const todayLogs = state.logs[state.currentDateStr] || {};
+      const currentHour = new Date().getHours();
       
-      const activeTodos = state.todos.filter(t => !t.deletedAt);
-      
-      const sortedTodos = [...activeTodos].sort((a, b) => {
-        if (a.status === b.status) return b.updatedAt - a.updatedAt;
-        return a.status === 'DONE' ? 1 : -1;
-      });
-
-      if (sortedTodos.length === 0) {
-        const emptyMsg = '<div style="text-align:center; padding:32px; color:var(--text-muted); font-size:12px;">タスクはありません</div>';
-        if(container) container.innerHTML = emptyMsg;
-        if(logTodoContainer) logTodoContainer.innerHTML = emptyMsg;
-        return;
-      }
-
-      sortedTodos.forEach((todo, idx) => {
-        const itemHtml = `
-          <div class="todo-item ${todo.status === 'DONE' ? 'done' : ''}">
-            <input type="checkbox" ${todo.status === 'DONE' ? 'checked' : ''} 
-                   onchange="toggleTodo('${todo.id}')" style="margin-top:4px;">
-            <div class="todo-text" contenteditable="true" style="flex:1; outline:none;"
-                 onfocus="this.innerText = state.todos.find(t => t.id === '${todo.id}').text; lastFocusedTarget = this;"
-                 onkeydown="handleTodoKeyDownPWA(event, this, '${todo.id}', ${idx})"
-                 onblur="updateTodoText('${todo.id}', this.innerText)">${parseMarkdown(todo.text)}</div>
-            <button class="action-icon-btn" title="今の時間に記録" onclick="sendToLog('${todo.id}')">📝</button>
-            <button class="delete-icon-btn" title="削除" onclick="deleteTodo('${todo.id}')">×</button>
+      for (let i = 0; i < 24; i++) {
+        const entries = (todayLogs[i] || []).filter(e => !e.deletedAt);
+        if (entries.length === 0 && i !== currentHour && state.currentDateStr === getTodayStr()) continue;
+        if (entries.length === 0 && state.currentDateStr !== getTodayStr()) continue;
+        
+        const itemDiv = document.createElement('div');
+        const isCollapsed = state.collapsedHours[`${state.currentDateStr}-${i}`];
+        itemDiv.className = `timeline-item ${isCollapsed ? 'collapsed' : ''}`;
+        itemDiv.innerHTML = `
+          <div class="timeline-dot"></div>
+          <div class="time-header" title="クリックで展開/折りたたみ">
+            <span class="toggle-icon">▼</span>
+            <span class="time-label">${i}:00</span>
           </div>
+          <div class="time-body" id="time-body-${i}"></div>
         `;
-        if(container) container.insertAdjacentHTML('beforeend', itemHtml);
-        if(logTodoContainer) logTodoContainer.insertAdjacentHTML('beforeend', itemHtml);
-      });
+        
+        itemDiv.querySelector('.time-header').addEventListener('click', () => toggleHourCollapse(i));
+        container.appendChild(itemDiv);
+        const bodyDiv = itemDiv.querySelector(`#time-body-${i}`);
+        
+        entries.forEach(entry => {
+          const entryDiv = document.createElement('div');
+          entryDiv.className = 'entry-item';
+          entryDiv.innerHTML = `
+            <div class="entry-text">${parseMarkdown(entry.text)}</div>
+            <button class="action-icon-btn" title="TODOに追加">🔲</button>
+            <button class="delete-icon-btn" title="削除">×</button>
+          `;
+          entryDiv.querySelector('.entry-text').addEventListener('click', () => editEntry(i, entry.id));
+          entryDiv.querySelector('.action-icon-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const cleanText = entry.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
+            state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ' + cleanText, status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
+            scheduleSave();
+            refreshUI();
+          });
+          entryDiv.querySelector('.delete-icon-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteLogEntry(i, entry.id);
+          });
+          bodyDiv.appendChild(entryDiv);
+        });
+        
+        if (i === currentHour && state.currentDateStr === getTodayStr()) {
+           const input = document.createElement('textarea');
+           input.className = 'input-pad';
+           input.placeholder = 'ここに入力... (Enterで保存, Shift+Enterで改行)';
+           input.onkeydown = (e) => handleLogPadKeyDown(e, i, input);
+           bodyDiv.appendChild(input);
+
+           const palette = document.createElement('div');
+           palette.className = 'inline-emoji-palette';
+           const emojis = [
+             { icon: '🟢', title: '開始/進行中' }, { icon: '📞', title: '電話/会議' }, { icon: '🗣️', title: '相談/会話' },
+             { icon: '📧', title: 'メール/チャット' }, { icon: '🔥', title: '重要/トラブル' }, { icon: '💡', title: 'アイデア/ひらめき' },
+             { icon: '⏳', title: '待ち/保留' }, { icon: '💭', title: '思考/検討' }, { icon: '💤', title: '休憩/離席' },
+             { icon: '🙋', title: '質問/依頼' }, { icon: '🔲', title: 'TODO' }, { icon: '✅', title: '完了' }, { icon: '⏭️', title: 'スキップ/先送り' }
+           ];
+           emojis.forEach(item => {
+             const btn = document.createElement('button');
+             btn.className = 'mini-icon-btn'; btn.textContent = item.icon; btn.title = item.title;
+             palette.appendChild(btn);
+           });
+           bodyDiv.appendChild(palette);
+        }
+      }
+    }
+
+    function toggleHourCollapse(hour) {
+      const key = `${state.currentDateStr}-${hour}`;
+      state.collapsedHours[key] = !state.collapsedHours[key];
+      scheduleSave();
+      refreshUI();
+    }
+
+    function handleLogPadKeyDown(e, hour, inputElement) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = inputElement.value.trim();
+        if (text) {
+          if (!state.logs[state.currentDateStr]) state.logs[state.currentDateStr] = {};
+          if (!state.logs[state.currentDateStr][hour]) state.logs[state.currentDateStr][hour] = [];
+          state.logs[state.currentDateStr][hour].push({ id: 'log_' + Date.now().toString(), text: text, depth: 0, updatedAt: Date.now(), deletedAt: null });
+          inputElement.value = '';
+          scheduleSave();
+          refreshUI();
+        }
+      }
+    }
+
+    function editEntry(hour, id) {
+      const entry = state.logs[state.currentDateStr][hour].find(e => e.id === id);
+      if (!entry) return;
+      const newText = prompt("編集:", entry.text);
+      if (newText !== null) {
+        if (newText.trim() === '') {
+          entry.deletedAt = Date.now();
+          entry.updatedAt = Date.now();
+        } else {
+          entry.text = newText;
+          entry.updatedAt = Date.now();
+        }
+        scheduleSave();
+        refreshUI();
+      }
     }
 
     function toggleTodo(id) {
@@ -654,7 +573,42 @@
       if (todo) {
         todo.status = todo.status === 'DONE' ? 'ACTIVE' : 'DONE';
         todo.updatedAt = Date.now();
-        scheduleSave(); renderTodoList();
+        scheduleSave();
+        refreshUI();
+      }
+    }
+
+    function deleteTodo(id) {
+      const todo = state.todos.find(t => t.id === id);
+      if (todo) {
+        lastDeleted = { type: 'todo', id: todo.id };
+        todo.deletedAt = Date.now();
+        todo.updatedAt = Date.now();
+        scheduleSave();
+        refreshUI();
+        showUndo("TODOを削除しました");
+      }
+    }
+
+    function deleteLogEntry(hour, id) {
+      const entry = state.logs[state.currentDateStr]?.[hour]?.find(e => e.id === id);
+      if (entry) {
+        lastDeleted = { type: 'log', date: state.currentDateStr, hour: hour, id: entry.id };
+        entry.deletedAt = Date.now();
+        entry.updatedAt = Date.now();
+        scheduleSave();
+        refreshUI();
+        showUndo("ログを削除しました");
+      }
+    }
+
+    function showUndo(msg) {
+      const bar = document.getElementById('undo-snackbar');
+      const msgEl = document.getElementById('undo-message');
+      if (bar && msgEl) {
+        msgEl.textContent = msg;
+        bar.classList.add('show');
+        setTimeout(() => bar.classList.remove('show'), 5000);
       }
     }
 
@@ -662,8 +616,8 @@
       const todo = state.todos.find(t => t.id === id);
       if (todo) {
         const cleanText = text.trim();
-        if (todo.text === cleanText) { renderTodoList(); return; } 
-        if (cleanText === "") {
+        if (todo.text === cleanText) { renderTodoList(); return; }
+        if (cleanText === '') {
           todo.deletedAt = Date.now();
           todo.updatedAt = Date.now();
         } else {
@@ -671,44 +625,71 @@
           todo.updatedAt = Date.now();
         }
         scheduleSave();
-        renderTodoList();
+        refreshUI();
       }
     }
 
-    function deleteTodo(id) {
-      const todo = state.todos.find(t => t.id === id);
-      if (todo) {
-        lastDeleted = { type: 'todo', id: todo.id }; // 復元用にIDだけ記憶
-        todo.deletedAt = Date.now();
-        todo.updatedAt = Date.now();
-        scheduleSave(); renderTodoList();
-        showUndo("TODOを削除しました");
+    function handleTodoKeyDown(e, el, id, idx) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        el.blur();
+        setTimeout(() => {
+          const allTodos = document.querySelectorAll('#todo-content .todo-text');
+          if (idx + 1 < allTodos.length) allTodos[idx + 1].focus();
+          else document.getElementById('btn-add-todo')?.click();
+        }, 50);
       }
     }
 
-    function deleteLogEntry(date, hour, id) {
-      const entry = state.logs[date]?.[hour]?.find(e => e.id === id);
-      if (entry) {
-        lastDeleted = { type: 'log', date: date, hour: hour, id: entry.id };
-        entry.deletedAt = Date.now();
-        entry.updatedAt = Date.now();
-        scheduleSave(); renderDailyLog();
-        showUndo("ログを削除しました");
-      }
+    function createTodoItemElement(todo, idx) {
+      const item = document.createElement('div');
+      item.className = `todo-item ${todo.status === 'DONE' ? 'done' : ''}`;
+      item.innerHTML = `
+        <input type="checkbox" class="todo-checkbox" ${todo.status === 'DONE' ? 'checked' : ''}>
+        <div class="todo-text" contenteditable="true" style="flex:1; outline:none;">${parseMarkdown(todo.text)}</div>
+        <button class="action-icon-btn" title="今の時間に記録">📝</button>
+        <button class="delete-icon-btn" title="削除">×</button>
+      `;
+
+      item.querySelector('.todo-checkbox').addEventListener('change', () => toggleTodo(todo.id));
+      const txt = item.querySelector('.todo-text');
+      txt.addEventListener('focus', () => { txt.innerText = todo.text; window.lastFocusedTarget = txt; });
+      txt.addEventListener('blur', () => updateTodoText(todo.id, txt.innerText));
+      txt.addEventListener('keydown', (e) => handleTodoKeyDown(e, txt, todo.id, idx));
+      
+      item.querySelector('.action-icon-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentHour = new Date().getHours();
+        const today = getTodayStr();
+        if (!state.logs[today]) state.logs[today] = {};
+        if (!state.logs[today][currentHour]) state.logs[today][currentHour] = [];
+        const cleanText = todo.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
+        state.logs[today][currentHour].push({ id: 'log_' + Date.now().toString(), text: '✅ ' + cleanText, depth: 0, updatedAt: Date.now(), deletedAt: null });
+        scheduleSave();
+        refreshUI();
+      });
+      
+      item.querySelector('.delete-icon-btn').addEventListener('click', () => deleteTodo(todo.id));
+      return item;
     }
 
-    function showUndo(msg) {
-      const bar = document.getElementById('undo-snackbar');
-      document.getElementById('undo-message').textContent = msg;
-      bar.classList.add('show');
-      setTimeout(() => bar.classList.remove('show'), 5000);
+    function renderTodoList() {
+      const container = document.getElementById('todo-content');
+      const logTodoContainer = document.getElementById('log-todo-content'); 
+      if (container) container.innerHTML = '';
+      if (logTodoContainer) logTodoContainer.innerHTML = '';
+      
+      const activeTodos = state.todos.filter(t => !t.deletedAt);
+      activeTodos.forEach((todo, idx) => {
+        if (container) container.appendChild(createTodoItemElement(todo, idx));
+        if (logTodoContainer) logTodoContainer.appendChild(createTodoItemElement(todo, idx));
+      });
     }
 
     function renderArchive() {
       const container = document.getElementById('archive-content');
       if (!container) return;
       container.innerHTML = '';
-      
       let archiveItems = [];
       Object.keys(state.logs).forEach(date => {
         Object.keys(state.logs[date]).forEach(hour => {
@@ -719,7 +700,6 @@
           });
         });
       });
-
       archiveItems.sort((a, b) => {
         if (a.date !== b.date) return b.date.localeCompare(a.date);
         return parseInt(b.hour) - parseInt(a.hour);
@@ -729,112 +709,74 @@
         container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted); font-size:12px;">アーカイブされた記録はありません<br>行頭に「📦」をつけるとここに表示されます</div>';
         return;
       }
-
       archiveItems.forEach(item => {
         const div = document.createElement('div');
         div.className = 'archive-item';
-        div.innerHTML = `
-          <div class="archive-date">${item.date} ${String(item.hour).padStart(2, '0')}:00</div>
-          <div class="archive-text">${parseMarkdown(item.text)}</div>
-        `;
+        div.innerHTML = `<div class="archive-date">${item.date} ${String(item.hour).padStart(2, '0')}:00</div><div class="archive-text">${parseMarkdown(item.text)}</div>`;
         container.appendChild(div);
       });
     }
 
-    function moveDate(offset) {
-      const d = new Date(state.currentDateStr);
-      d.setDate(d.getDate() + offset);
-      state.currentDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      renderAll();
-    }
-
-    function copyOutput() {
-      const logs = state.logs[state.currentDateStr] || {};
-      let text = `■ ${state.currentDateStr} の日誌\n\n`;
-      let hasContent = false;
-      for (let h = 0; h < 24; h++) {
-        const activeLogs = (logs[h] || []).filter(e => !e.deletedAt);
-        
-        if (activeLogs.length > 0) {
-          hasContent = true;
-          text += `[${h}:00]\n`;
-          activeLogs.forEach(e => text += `- ${e.text}\n`);
-          text += `\n`;
-        }
-      }
-      if (!hasContent) text += "記録はありません。";
-
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        document.getElementById('btn-copy-output').textContent = "✓ コピー完了";
-        setTimeout(() => document.getElementById('btn-copy-output').textContent = "📋 出力", 2000);
-      } catch (err) { console.error("Copy failed", err); }
-      document.body.removeChild(textArea);
+    function refreshUI() {
+      document.getElementById('sync-status').textContent = isDirty ? "変更あり" : "同期済み";
+      renderCalendar();
+      renderHourSelector();
+      renderDailyLog();
+      renderTodoList();
+      renderArchive();
     }
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-      document.getElementById('tab-btn-' + tabId).classList.add('active');
-      document.getElementById('tab-' + tabId).classList.add('active');
-      
+      const targetBtn = document.getElementById('tab-btn-' + tabId);
+      const targetContent = document.getElementById('tab-' + tabId);
+      if (targetBtn) targetBtn.classList.add('active');
+      if (targetContent) targetContent.classList.add('active');
       if (tabId === 'archive') renderArchive();
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      initData();
-      document.getElementById('btn-cal-prev').onclick = () => moveDate(-1);
-      document.getElementById('btn-cal-next').onclick = () => moveDate(1);
-      document.getElementById('btn-add-past').onclick = () => document.getElementById('hour-selector').classList.toggle('hidden');
-      document.getElementById('btn-copy-output').onclick = copyOutput;
-      
-      document.getElementById('tab-btn-log').onclick = () => switchTab('log');
-      document.getElementById('tab-btn-todo').onclick = () => switchTab('todo');
-      document.getElementById('tab-btn-archive').onclick = () => switchTab('archive');
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initData();
 
-      document.getElementById('btn-add-todo').onclick = () => {
-        state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ', status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
-        renderTodoList();
-        document.querySelector('.todo-text')?.focus();
-      };
-      
-      document.getElementById('btn-undo').onclick = () => {
-        if (!lastDeleted) return;
+      const btnOpenDb = document.getElementById('btn-open-db');
+      if (btnOpenDb) {
+        btnOpenDb.addEventListener('click', () => {
+          window.open('https://docs.google.com/spreadsheets/d/1kCO0bYro9EPm6e67Q3XNt7GQjFlkbszjx-i779oYV3E/edit?gid=1407902297#gid=1407902297', '_blank');
+        });
+      }
 
-        if (lastDeleted.type === 'todo') {
-          const todo = state.todos.find(t => t.id === lastDeleted.id);
-          if (todo) {
-            todo.deletedAt = null;
-            todo.updatedAt = Date.now();
-            lastDeleted = null;
-            renderTodoList(); scheduleSave();
-            document.getElementById('undo-snackbar').classList.remove('show');
+      const btnAddTodo = document.getElementById('btn-add-todo');
+      if (btnAddTodo) {
+        btnAddTodo.onclick = () => {
+          state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ', status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
+          refreshUI();
+          isDirty = true;
+          scheduleSave();
+          setTimeout(() => document.querySelector('.todo-text')?.focus(), 50);
+        };
+      }
+
+      const btnUndo = document.getElementById('btn-undo');
+      if (btnUndo) {
+        btnUndo.onclick = () => {
+          if (!lastDeleted) return;
+          if (lastDeleted.type === 'todo') {
+            const todo = state.todos.find(t => t.id === lastDeleted.id);
+            if (todo) { todo.deletedAt = null; todo.updatedAt = Date.now(); lastDeleted = null; renderTodoList(); scheduleSave(); document.getElementById('undo-snackbar')?.classList.remove('show'); }
+          } else if (lastDeleted.type === 'log') {
+            const entry = state.logs[lastDeleted.date]?.[lastDeleted.hour]?.find(e => e.id === lastDeleted.id);
+            if (entry) { entry.deletedAt = null; entry.updatedAt = Date.now(); lastDeleted = null; renderDailyLog(); scheduleSave(); document.getElementById('undo-snackbar')?.classList.remove('show'); }
           }
-        } else if (lastDeleted.type === 'log') {
-          const entry = state.logs[lastDeleted.date]?.[lastDeleted.hour]?.find(e => e.id === lastDeleted.id);
-          if (entry) {
-            entry.deletedAt = null;
-            entry.updatedAt = Date.now();
-            lastDeleted = null;
-            renderDailyLog(); scheduleSave();
-            document.getElementById('undo-snackbar').classList.remove('show');
-          }
-        }
-      };
+        };
+      }
 
-      const handleMiniEmojiClick = (e) => {
+      document.addEventListener('mousedown', (e) => {
         if (e.target && e.target.classList.contains('mini-icon-btn')) {
           e.preventDefault(); 
           const emoji = e.target.textContent;
           const palette = e.target.parentElement;
-          
           const targetInput = palette.previousElementSibling;
-
           if (targetInput && targetInput.tagName === 'TEXTAREA') {
             const text = targetInput.value;
             targetInput.value = emoji + text;
@@ -843,25 +785,106 @@
             targetInput.selectionEnd = emoji.length;
           }
         }
-      };
-      
-      document.addEventListener('mousedown', handleMiniEmojiClick);
-      document.addEventListener('touchstart', handleMiniEmojiClick, { passive: false });
+      });
 
-      document.getElementById('btn-manual-sync').onclick = () => {
-        const btn = document.getElementById('btn-manual-sync');
-        btn.style.transform = 'rotate(360deg)'; 
-        fetchCloudData().finally(() => {
-          setTimeout(() => btn.style.transform = 'rotate(0deg)', 300);
+      const btnManualSync = document.getElementById('btn-manual-sync');
+      if (btnManualSync) {
+        btnManualSync.onclick = () => {
+          btnManualSync.style.transform = 'rotate(360deg)';
+          fetchCloudData().finally(() => setTimeout(() => btnManualSync.style.transform = 'rotate(0deg)', 300));
+        };
+      }
+
+      // メンテナンスモーダルのイベントリスナー
+      const settingsModal = document.getElementById('settings-modal');
+      const btnSettings = document.getElementById('btn-settings');
+      const btnCloseSettings = document.getElementById('btn-close-settings');
+      const toggleAutoSync = document.getElementById('toggle-auto-sync');
+
+      if (btnSettings && settingsModal) btnSettings.addEventListener('click', () => { settingsModal.classList.remove('hidden'); settingsModal.style.display = 'flex'; });
+      if (btnCloseSettings && settingsModal) btnCloseSettings.addEventListener('click', () => { settingsModal.style.display = 'none'; settingsModal.classList.add('hidden'); });
+      if (toggleAutoSync) toggleAutoSync.addEventListener('change', (e) => {
+        isAutoSyncEnabled = e.target.checked;
+        document.getElementById('sync-status').textContent = isAutoSyncEnabled ? "同期待機中" : "自動同期オフ";
+      });
+
+      // タブ切り替えリスナー
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const tabId = e.target.id.replace('tab-btn-', '');
+          switchTab(tabId);
         });
-      };
+      });
+
+      // 危険な操作イベント
+      const btnClearUI = document.getElementById('btn-clear-ui');
+      if (btnClearUI) {
+        btnClearUI.addEventListener('click', () => {
+          if (confirm("画面の表示をクリアしますか？（未保存のデータは見えなくなります）")) {
+            clearUIData();
+            settingsModal.style.display = 'none';
+          }
+        });
+      }
+
+      const btnClearLocal = document.getElementById('btn-clear-local');
+      if (btnClearLocal) {
+        btnClearLocal.addEventListener('click', async () => {
+          if (confirm("ローカルストレージを完全に消去しますか？（同期されていないデータは失われます）")) {
+            await clearLocalStorageData();
+            clearUIData();
+            settingsModal.style.display = 'none';
+            alert("ローカルデータを消去しました。");
+          }
+        });
+      }
+
+      const btnClearGas = document.getElementById('btn-clear-gas');
+      if (btnClearGas) {
+        btnClearGas.addEventListener('click', async () => {
+          if (confirm("【警告】クラウド(GAS)上のすべてのデータを初期化します。本当によろしいですか？")) {
+            await clearGASData();
+            alert("クラウドデータの初期化リクエストを送信しました。");
+            settingsModal.style.display = 'none';
+          }
+        });
+      }
 
       setInterval(() => {
-        if (!isDirty) {
-          fetchCloudData();
-        }
+        if (!isDirty && isAutoSyncEnabled) fetchCloudData();
       }, 30000);
     });
+
+    // --- メンテナンス・削除用関数群 ---
+    function clearUIData() {
+      state = { currentDateStr: getTodayStr(), logs: {}, todos: [], collapsedHours: {} };
+      refreshUI();
+      console.log("UI data cleared.");
+    }
+
+    async function clearLocalStorageData() {
+      try {
+        localStorage.removeItem('appState');
+        console.log("Local storage cleared.");
+      } catch (e) {
+        console.error("Failed to clear local storage:", e);
+      }
+    }
+
+    async function clearGASData() {
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('YOUR_GAS')) return;
+      try {
+        await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'CLEAR_GAS_DATA' })
+        });
+        console.log("GAS data clear request sent.");
+      } catch (error) {
+        console.error("Failed to clear GAS data:", error);
+      }
+    }
   </script>
 </body>
 </html>
