@@ -1,890 +1,675 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Zero-Latency Logger (PWA)</title>
-  
-  <!-- PWA Manifest & Icons -->
-  <link rel="manifest" href="./manifest.webmanifest">
-  <meta name="theme-color" content="#0ea5e9">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/4345/4345517.png">
-
-  <style>
-    /**
-     * Design System Tokens
-     */
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>あなたと浦和レッズの物語</title>
+<!-- 柔らかい印象の丸ゴシック体を読み込み -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+    /* =========================================
+       基本スタイルと変数定義
+       ========================================= */
     :root {
-      --bg-base: #fafaf9; --bg-surface: #ffffff; --text-main: #44403c;
-      --text-muted: #a8a29e; --border-color: #e7e5e4; --accent-color: #0ea5e9; --danger-color: #ef4444;
-      --safe-area-top: env(safe-area-inset-top, 0px);
+        --bg-color: #F5F5F0;       /* 温かみのあるウォームグレー */
+        --text-color: #333333;     /* 可読性の高いダークグレー */
+        --accent-color: #E60012;   /* レッズレッド（アクション要素のみ） */
+        --card-bg: #FFFFFF;        /* メッセージカード背景 */
+        --meta-color: #888888;     /* 性別・年齢などの補足情報用 */
+        --main-font: 'M PLUS Rounded 1c', sans-serif;
     }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg-base: #000000; --bg-surface: #111111; --text-main: #e7e5e4; --text-muted: #78716c; --border-color: #292524; --accent-color: #38bdf8; --danger-color: #f87171; }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: var(--main-font);
+        line-height: 1.8;
+        -webkit-font-smoothing: antialiased;
+        /* 少し背景に質感を持たせる（任意） */
+        background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+        background-size: 20px 20px;
     }
 
-    /* Base Layout */
-    *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-base); color: var(--text-main); height: 100dvh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; line-height: 1.4; }
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px 20px;
+    }
 
-    /* UI Components Style */
-    .app-header { flex-shrink: 0; background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 100; padding-top: var(--safe-area-top); }
-    .header-top { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; }
-    .logo-container { display: flex; align-items: baseline; gap: 8px; }
-    .logo { font-weight: 800; font-size: 16px; letter-spacing: -0.025em; }
-    #sync-status { font-size: 10px; color: var(--text-muted); font-weight: 500; }
-    .calendar-ribbon-container { display: flex; align-items: center; background-color: var(--bg-base); border-top: 1px solid var(--border-color); padding: 4px; }
-    .ribbon-btn { background: none; border: none; color: var(--text-muted); padding: 8px; font-size: 20px; cursor: pointer; }
-    .calendar-ribbon { flex: 1; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 4px 0; scroll-snap-type: x mandatory; }
-    .calendar-ribbon::-webkit-scrollbar { display: none; }
-    .date-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 52px; padding: 8px 4px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; scroll-snap-align: center; }
-    .date-item.active { background-color: var(--bg-surface); box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid var(--accent-color); }
-    .date-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
-    .date-num { font-size: 16px; font-weight: 700; margin-top: 2px; }
+    /* =========================================
+       ヘッダーとアコーディオン
+       ========================================= */
+    .header {
+        text-align: center;
+        margin-bottom: 40px;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    }
 
-    /* Timeline & Input Pad Style */
-    .main-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding-bottom: 24px; }
-    .timeline { position: relative; padding-left: 24px; margin-left: 12px; border-left: 2px solid var(--border-color); margin-top: 16px; }
-    .timeline-item { position: relative; margin-bottom: 16px; }
-    .timeline-item.collapsed .time-body { display: none; }
-    .timeline-dot { position: absolute; left: -30px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent-color); border: 2px solid var(--bg-base); }
-    .timeline-item.collapsed .timeline-dot { background-color: var(--text-muted); }
-    
-    .time-header { display: flex; align-items: center; gap: 6px; cursor: pointer; margin-bottom: 4px; padding: 4px 8px; border-radius: 6px; margin-left: -8px; transition: background-color 0.1s; }
-    .time-header:hover { background-color: var(--border-color); }
-    .toggle-icon { font-size: 10px; color: var(--text-muted); transition: transform 0.2s ease; display: inline-block; }
-    .timeline-item.collapsed .toggle-icon { transform: rotate(-90deg); }
-    .time-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; }
-    
-    .entry-item { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; margin-bottom: 2px; color: var(--text-main); }
-    .entry-item::before { content: "•"; color: var(--text-muted); font-weight: bold; flex-shrink: 0; }
-    .entry-text { flex: 1; word-break: break-word; min-height: 1.5em; outline: none; }
-    
-    .input-pad { width: 100%; min-height: 36px; padding: 8px 10px; border-radius: 12px; background-color: var(--bg-surface); border: 1px solid var(--border-color); font-size: 15px; color: var(--text-main); outline: none; resize: none; transition: all 0.2s ease; margin-top: 4px; }
-    .input-pad:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
-    .hour-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 16px; }
-    .hour-chip { padding: 10px 0; text-align: center; border-radius: 8px; font-size: 12px; font-weight: 600; background-color: var(--bg-surface); border: 1px solid var(--border-color); cursor: pointer; color: var(--text-main); }
-    .hour-chip.has-content { border-color: var(--accent-color); color: var(--accent-color); }
-    
-    .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-surface); }
-    .todo-item.done { opacity: 0.5; }
-    .todo-item.done .todo-text { text-decoration: line-through; color: var(--text-muted); }
+    .catch-copy {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-color);
+        line-height: 1.5;
+    }
 
-    .action-icon-btn { background: transparent; border: none; font-size: 14px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s, transform 0.1s; padding: 2px 4px; margin-left: auto; }
-    .entry-item:hover .action-icon-btn, .todo-item:hover .action-icon-btn { opacity: 0.7; }
-    .action-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
-    
-    .delete-icon-btn { background: transparent; border: none; font-size: 16px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s, transform 0.1s; padding: 2px 8px; color: var(--danger-color); }
-    .entry-item:hover .delete-icon-btn, .todo-item:hover .delete-icon-btn { opacity: 0.7; }
-    .delete-icon-btn:hover { opacity: 1 !important; transform: scale(1.1); }
-    
-    .log-todo-section { margin-top: 12px; padding-top: 8px; border-top: 2px dashed var(--border-color); }
-    .log-todo-header { font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 12px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+    .accordion-btn {
+        background: none;
+        border: 1px solid #CCCCCC;
+        color: #555555;
+        padding: 10px 24px;
+        border-radius: 30px;
+        cursor: pointer;
+        font-family: var(--main-font);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        background-color: #FFFFFF;
+    }
 
-    .todo-text[contenteditable="true"] { padding: 2px 4px; border-radius: 4px; transition: background 0.2s; min-height: 1.5em; }
-    .todo-text[contenteditable="true"]:focus { background: var(--bg-base); outline: 1px solid var(--border-color); }
+    .accordion-btn:hover {
+        background-color: #F0F0F0;
+        border-color: #AAAAAA;
+    }
 
-    /* Utility Styles */
-    .pane-header { padding: 8px 16px; font-size: 12px; font-weight: 800; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; color: var(--text-muted); text-transform: uppercase; }
-    .action-btn { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; font-size: 11px; font-weight: 600; padding: 6px 10px; cursor: pointer; color: var(--text-main); }
-    .action-btn.primary { background: var(--accent-color); color: white; border: none; }
-    .hidden { display: none !important; }
+    .accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s ease-out, opacity 0.4s ease-out, padding 0.4s ease-out, margin 0.4s ease-out;
+        opacity: 0;
+        text-align: left;
+        font-size: 0.95rem;
+        color: #555555;
+        background-color: #FFFFFF;
+        border-radius: 8px;
+        margin-top: 0;
+    }
 
-    #undo-snackbar { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(150px); background: var(--bg-surface); border: 1px solid var(--border-color); padding: 12px 20px; border-radius: 30px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); display: flex; gap: 16px; align-items: center; z-index: 1000; }
-    #undo-snackbar.show { transform: translateX(-50%) translateY(0); }
-    #btn-undo { color: var(--accent-color); font-weight: 700; border: none; background: none; cursor: pointer; font-size: 13px; }
+    .accordion-content.open {
+        max-height: 800px;
+        opacity: 1;
+        padding: 25px;
+        margin-top: 20px;
+        border: 1px solid #EEEEEE;
+    }
 
-    /* Tab Styles */
-    .tab-nav { display: flex; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 60; }
-    .tab-btn { flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 800; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
-    .tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    .accordion-content p {
+        margin-top: 0;
+        margin-bottom: 1em;
+    }
+    .accordion-content p:last-child {
+        margin-bottom: 0;
+    }
 
-    .inline-emoji-palette { display: flex; gap: 6px; margin-top: 6px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
-    .inline-emoji-palette::-webkit-scrollbar { display: none; }
-    .mini-icon-btn { background: transparent; border: none; border-radius: 6px; font-size: 14px; padding: 4px 6px; cursor: pointer; flex-shrink: 0; user-select: none; transition: all 0.1s; color: var(--text-main); }
-    .mini-icon-btn:hover { background: var(--border-color); transform: translateY(-1px); }
-    .mini-icon-btn:active { transform: scale(0.9); }
+    /* =========================================
+       モード切替タブとアクションボタン
+       ========================================= */
+    .tabs {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin-bottom: 40px;
+        border-bottom: 2px solid #DDDDDD;
+        padding-bottom: 5px;
+    }
 
-    .md-red-bold { color: var(--danger-color); font-weight: 800; }
-    
-    .archive-item { padding: 8px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
-    .archive-date { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-weight: 700; letter-spacing: 0.05em; }
-    .archive-text { font-size: 14px; line-height: 1.5; color: var(--text-main); word-break: break-word; }
+    .tab-btn {
+        background: none;
+        border: none;
+        padding: 10px 15px;
+        font-size: 1.1rem;
+        color: var(--meta-color);
+        cursor: pointer;
+        font-family: var(--main-font);
+        font-weight: 700;
+        position: relative;
+        transition: color 0.3s ease;
+    }
 
-  </style>
+    .tab-btn:hover {
+        color: var(--text-color);
+    }
+
+    .tab-btn.active {
+        color: var(--text-color);
+    }
+
+    .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -7px;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background-color: var(--accent-color);
+        border-radius: 4px 4px 0 0;
+    }
+
+    .action-area {
+        text-align: center;
+        margin-bottom: 40px;
+        display: none;
+    }
+
+    .draw-btn {
+        background-color: var(--accent-color);
+        color: #FFFFFF;
+        border: none;
+        padding: 15px 40px;
+        font-size: 1.2rem;
+        border-radius: 40px;
+        cursor: pointer;
+        font-family: var(--main-font);
+        font-weight: 700;
+        box-shadow: 0 4px 10px rgba(230, 0, 18, 0.3);
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .draw-btn:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 8px 15px rgba(230, 0, 18, 0.4);
+    }
+
+    .draw-btn:active {
+        transform: translateY(0) scale(0.98);
+        box-shadow: 0 2px 5px rgba(230, 0, 18, 0.3);
+    }
+
+    /* =========================================
+       カードとレイアウト (Masonry)
+       ========================================= */
+    #grid-view, #random-view {
+        column-count: 3;
+        column-gap: 25px;
+        padding: 10px 0;
+    }
+
+    #random-view {
+        display: none;
+    }
+
+    .card {
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        break-inside: avoid;
+        page-break-inside: avoid;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        position: relative;
+        /* ランダムな傾きはJSで付与 */
+    }
+
+    .card-id {
+        position: absolute;
+        top: 15px;
+        left: 20px;
+        font-size: 0.85rem;
+        color: rgba(0, 0, 0, 0.3); /* 邪魔にならない半透明のグレー */
+        font-weight: 700;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .card:hover {
+        transform: rotate(0deg) scale(1.02) translateY(-5px) !important;
+        box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+        z-index: 10;
+    }
+
+    .card-text {
+        white-space: pre-wrap;
+        margin-bottom: 25px;
+        word-break: break-word;
+    }
+
+    .card-meta {
+        text-align: right;
+        font-size: 0.9rem;
+        color: var(--meta-color);
+        border-top: 1px solid #F0F0F0;
+        padding-top: 15px;
+    }
+
+    /* =========================================
+       レスポンシブ対応
+       ========================================= */
+    @media (max-width: 1024px) {
+        #grid-view, #random-view { column-count: 2; }
+    }
+    @media (max-width: 650px) {
+        #grid-view, #random-view { column-count: 1; }
+        .catch-copy { font-size: 1.1rem; }
+        .header { padding: 20px 15px; }
+    }
+</style>
 </head>
 <body>
-  <header class="app-header">
-    <div class="header-top">
-      <div class="logo-container">
-        <div class="logo">Zero-Latency Logger</div>
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <span id="sync-status">初期化中...</span>
-          <button id="btn-manual-sync" style="background:none; border:none; cursor:pointer; font-size:12px; color:var(--text-muted); padding:2px; transition: transform 0.3s;" title="手動同期">🔄</button>
-          <button id="btn-settings" style="background:none; border:none; cursor:pointer; font-size:14px; color:var(--text-muted); padding:2px; margin-left:4px;" title="設定・メンテナンス">⚙️</button>
-        </div>
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button class="action-btn" id="btn-open-db" title="スプレッドシートを開く">📊 DB</button>
-      </div>
-    </div>
-    
-    <div class="calendar-ribbon-container">
-      <button class="ribbon-btn" id="btn-cal-prev">‹</button>
-      <div class="calendar-ribbon" id="calendar-ribbon"></div>
-      <button class="ribbon-btn" id="btn-cal-next">›</button>
-    </div>
-  </header>
-
-  <nav class="tab-nav">
-    <button class="tab-btn active" id="tab-btn-log">DAILY LOG</button>
-    <button class="tab-btn" id="tab-btn-todo">TODO</button>
-    <button class="tab-btn" id="tab-btn-archive">ARCHIVE</button>
-  </nav>
-
-  <main class="main-container" id="main-container">
-    
-    <!-- DAILY LOG -->
-    <div id="tab-log" class="tab-content active">
-      <div id="hour-selector" class="hidden">
-        <div class="pane-header">SELECT HOUR</div>
-        <div id="hour-grid" class="hour-grid"></div>
-      </div>
-      <section class="pane">
-        <div class="pane-header">DAILY LOG</div>
-        <div class="pane-content">
-          <div class="timeline" id="log-content"></div>
-        </div>
+    <div class="container">
         
-        <div class="log-todo-section">
-          <div class="log-todo-header">
-            <span>TODO INBOX</span>
-          </div>
-          <div id="log-todo-content">
-            <!-- JSでTODOリストをここに複製描画します -->
-          </div>
+        <!-- ヘッダーエリア -->
+        <header class="header">
+            <div class="catch-copy">
+                浦和レッズと歩む、みなさまの日常。<br>
+                <span style="font-size: 0.85em; font-weight: 500; color: #666;">〜百年構想リーグ開幕によせて〜</span>
+            </div>
+            <button class="accordion-btn" id="accordion-btn" onclick="toggleAccordion()">募集背景を読む ▼</button>
+            <div class="accordion-content" id="accordion-content">
+                <p>日ごろより浦和レッズへ熱いサポートをいただき、誠にありがとうございます。<br>明治安田J1百年構想リーグに臨むにあたっての企画へのご協力のお願いです。</p>
+                <p>これまでも、そしてこれからも豊かなスポーツ文化を育んでいくことを願ってJリーグが大切にしている「百年構想」の名がつくリーグが始まるにあたって、改めてこのスポーツ文化があってよかった、と感じたエピソードを、浦和レッズと歩んでくださっているシーズンチケットホルダーのみなさまから募集したいと考えております。</p>
+                <p>いただいたご回答は、百年構想リーグ開幕を盛り上げるムービーや、浦和駅前PARCOの大型ビジョン広告、スタジアムでのオーロラビジョンで放映する映像などにて、使用させていただく予定です。<br>また、応募いただいたすべてのメッセージは責任を持って読ませていただき、今後のクラブの活動の糧といたします。</p>
+                <p>誕生してから33年のJリーグがある日常の中で、浦和レッズやJリーグがみなさまの日常や人生に与えた「プラスの影響」や「きっかけ」となったエピソードをお寄せください。</p>
+            </div>
+        </header>
+
+        <!-- コントロールタブ -->
+        <div class="tabs">
+            <button class="tab-btn active" id="tab-grid" onclick="switchMode('grid')">すべてを見る</button>
+            <button class="tab-btn" id="tab-random" onclick="switchMode('random')">ランダムに出会う</button>
         </div>
-      </section>
+
+        <!-- ランダムモード用ボタン -->
+        <div class="action-area" id="action-area">
+            <button class="draw-btn" onclick="shuffleAndDisplayRandom()">もう一度シャッフルする 🎲</button>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <main>
+            <div id="grid-view"></div>
+            <div id="random-view"></div>
+        </main>
+        
     </div>
 
-    <!-- TODO -->
-    <div id="tab-todo" class="tab-content">
-      <section class="pane todo-pane" id="todo-pane">
-        <div class="pane-header">
-          <span>TODO Inbox</span>
-          <button class="action-btn primary" id="btn-add-todo">＋ TODO追加</button>
-        </div>
-        <div class="pane-content" id="todo-content">
-          <!-- TODOリスト描画エリア -->
-        </div>
-      </section>
-    </div>
+    <script>
+        // =========================================
+        // Step 2-1: 温かみのあるパステルカラーの定義
+        // =========================================
+        const pastelColors = [
+            '#FFF0F5', // さくら色（ピンク系）
+            '#FFF5E6', // あんず色（オレンジ系）
+            '#FFFFE0', // ひよこ色（イエロー系）
+            '#F0FFF0', // わかば色（グリーン系）
+            '#F0F8FF', // そら色（ブルー系）
+            '#F8F0FF'  // ふじ色（パープル系）
+        ];
 
-    <!-- ARCHIVE -->
-    <div id="tab-archive" class="tab-content">
-      <section class="pane archive-pane" id="archive-pane">
-        <div class="pane-header">ARCHIVE (📦)</div>
-        <div class="pane-content" id="archive-content">
-          <!-- アーカイブリスト描画エリア -->
-        </div>
-      </section>
-    </div>
+        // =========================================
+        // エピソードデータ (CSVから抽出・全文そのまま)
+        // =========================================
+        const episodes = [
+            { gender: "男性", age: 24, text: `新卒入社で、会社の先輩たちとの会話のネタになった。いろんな人と繋がることができた。` },
+            { gender: "男性", age: 53, text: `アウェイへ参戦する様になり、確実な費用確保のため賭け事を辞めた。出費は増えたが・・・` },
+            { gender: "男性", age: 46, text: `・地元でＪリーグ観戦が出来る\n・浦和レッドダイヤモンズのサポーターの皆様の素晴らしい応援を体感出来る\n・仕事を日々している中で水曜日に埼玉スタジアム2002で夜風に吹かれながらサッカー観戦しているひと時が心地良い\n・浦和レッドダイヤモンズの選手やＪリーグのチームの選手のレベルの高いプレーを間近で観る事が出来る\n・2002年にFIFAW杯が埼玉スタジアム2002で開催された時はシャトルバス発着地最寄駅周辺でアルバイトをしており、大変盛り上がった事は良い思い出です。\n・浦和レッドダイヤモンズの選手のプレーを観ていると良い意味でポジティブになれます。\n・埼玉スタジアム2002で浦和レッドダイヤモンズが勝利をすると、スタジアムからの帰路で浦和レッドダイヤモンズを応援されている方々が嬉しそうな表情をされているのが、自分としても嬉しいものがあります。\n・埼玉スタジアム2002の観客席に来ると日常とは異なった開放的かつ圧倒的な雰囲気があり、それが良かったりします。` },
+            { gender: "男性", age: 68, text: `浦和レッズは家族の宝物です！！\n今年は5歳の孫娘も参戦、楽しみが一つ増えました。` },
+            { gender: "男性", age: 34, text: `浦和レッズの試合を見るために色々頑張れた` },
+            { gender: "男性", age: 57, text: `彼女(現在の妻)との初デートで2007年ホーム最終節vs鹿島アントラーズ戦に行けた事ですね。自分は'94` },
+            { gender: "男性", age: 62, text: `「どこからいらしたのですか？」\nそう聞かれても\n「東京の方から…」\nとか、なんとなく曖昧な答しかできなかったのに…。\n住む街に、引け目など無くても、胸を張ることなど無かったのに…。\nたとえ下位に低迷していたとしても、我らが誇りの街の名は\n「浦和」\nいつの間にか\n「浦和から来ました！」\nと、何処にいても誰と話しても、そう言える喜びがある。\n我が故郷は、世界に羽ばたく新世紀のフットボールの聖地ー。\n浦和レッズ　We love you ！` },
+            { gender: "男性", age: 65, text: `地元(浦和)愛が深まった` },
+            { gender: "男性", age: 30, text: `レッズのおかげで父親は一生の友達になりました。` },
+            { gender: "男性", age: 45, text: `「浦和レッズの勝利をサポートしたい」という共通の目標を胸に、ゴール裏で初めて会う人たちと肩を組み、歌を歌い、飛び跳ね、喜怒哀楽を分かち合う。去年はCWCでも日本と同様、それ以上の熱気を感じられた。この愛すべきサポーターと共に浦和を応援できる幸せ。人との交流が薄い、人に関心がないと言われている世の中で、サッカーの試合では『浦和のために』と、どんなときでも、どんな場所でも老若男女が一致団結する。浦和だからこそ味わえる人の温かさ、一体感。浦和があってよかった。` },
+            { gender: "男性", age: 44, text: `子供がサッカーを好きになるきっかけになった` },
+            { gender: "男性", age: 50, text: `最初娘はサッカーに興味もなくまたレッズのゴール裏の迫力、悪く言うとガラの悪さに嫌悪感があり一緒に観戦してくれなかったがだんだんこのスタジアムの雰囲気にもなれて25年シーズンは一緒に観戦する事が多くなりました、またホームでの勝率も高く私が行く日は勝てるよ！と勝利の女神のように話してきて一緒にいる時間が増えました。` },
+            { gender: "男性", age: 45, text: `姉に誘われて観に行った試合で、浦和レッズのサポーターの応援に感動したのがきっかけです。\n「We are Reds」のコールでスタジアムが１つになる瞬間を沢山の方に味わってほしいと願っています。\nタイトルを取るたび、浦和に生まれて良かったと思わせてもらっています！` },
+            { gender: "男性", age: 25, text: `親子の共通の趣味ができました。\n幼稚園の頃からサッカーが好きで、気づいた頃には浦和レッズを家族で応援しておりました。当時はデビューしたての原口選手に憧れを持っており、現地観戦とまでは行かないもののテレビを通して応援しておりました。\nその後もサッカーは続けており、浦和レッズも継続して応援していたもののスタジアムで観戦する機会はあまりありませんでした。\nそんな中で2023年母の日の前後でJリーグの企画であった無料招待の企画に当選し、母と私で現地観戦をしました。\n熱狂的な雰囲気、素晴らしい試合を経て、改めて浦和レッズを応援するきっかけとなり、今ではシーズンチケットで毎試合観戦に行っています。\n母も全ての試合には参戦できないものの、多くの試合に参戦しており、会う度の話題の中心は浦和レッズです。\nこのような素敵なきっかけを作ってくださった企画、Jリーグ、浦和レッズには感謝の気持ちでいっぱいです。\nこれからも母とともに力の限り浦和レッズを応援し続けたいと思います。` },
+            { gender: "男性", age: 17, text: `小さい頃から、父と一緒に浦和レッズの試合を観ています。高校生になった今でも浦和レッズを通して父との大切な時間を過ごせてることが幸せです！` },
+            { gender: "男性", age: 22, text: `浦和レッズに出会って愛というものを知った` },
+            { gender: "男性", age: 28, text: `浦和レッズがあってよかった。\nそう心から思える瞬間が、私の人生にはあります。\nそれは、2018年の天皇杯決勝です。\n\n当時の私は、浦和レッズの試合をスタジアムで観たのは数えられるほどしかありませんでした。\nそんな中、当時の彼女と二人で埼玉スタジアムへ行きました。\n\n優勝が決まった瞬間に目にした、あの景色。\nスタジアムを包み込む歓喜と熱気は、今でも鮮明に覚えています。\nもしあの試合を現地で観ていなければ、浦和レッズがここまで人生の一部になることはなかったと思います。\n\nあの時一緒にいた彼女は、今では妻となり、子どもも生まれました。\nさいたま市へ引っ越し、結婚式は浦和レッズのスポンサーでもあるステラ・デル・アンジェロで挙げました。\n昨年は家族でアメリカにも行き、\n私達の生活の中心にはいつも浦和レッズがあります。` },
+            { gender: "男性", age: 43, text: `息子が「どうしても埼スタに行きたい！」と言いだして早3年。会話はもちろん増えました。\n都内からなのでドアto席で2時間。いまではスタジアムに行けば顔見知りになった仲間も居ます。\n道中はいつも親子二人の空間でしたが、何回か埼スタに連れて行った親子もシーズンチケットをゲット（期間逃してまだ買えていないらしいですが）。一緒に行く仲間も増えました。\n\nサッカーをやっている息子にはスタジアムでの体験は毎回刺激しか無いようです。\nなめ回すように読んでいる選手名鑑は毎年シーズン終盤にはボロボロに。私より選手の個人情報には詳しい息子と今後も帰玉します！` },
+            { gender: "男性", age: 45, text: `浦和レッズと出会って両親との関係が良くなり一緒にスタジアムへ行くようになった` },
+            { gender: "男性", age: 51, text: `どんなケンカした日だって、スタジアムに向かいながら仲直り` },
+            { gender: "男性", age: 57, text: `・転勤族のゴールの街、浦和\n・窓から遠く灯りのついたスタジアムがある街、浦和\n・試合日は空気まで赤く染まる街、浦和\n・同じエンブレムで結果を背負う同士たちが集う街、浦和\n・サッカーという文化を宿命として刻む街、浦和\n・次の試合がある限り未来がある街、浦和\n・百年先までレッズと在り続ける街、浦和` },
+            { gender: "男性", age: 45, text: `2年前に初めてjリーグで観た試合が浦和レッズでした。\n熱くプライドを持って選手を後押しする浦和のサポーターの圧倒的な応援に感動して以来、サッカーを知らなかったおじさんは、毎試合浦和レッズを応援しにスタジアムに行くことが、ライフワークとなりました。\n\nこれまでもこれからも、浦和レッズと共に。\n情熱をありがとう。\nWE ARE REDS!!!` },
+            { gender: "男性", age: 33, text: `それまでは、友達に誘われたからというなんとなくの理由でサッカーをしているだけでしたが、スタジアムでの試合観戦がきっかけでサッカーにのめり込み、大人になった今では指導者をするまでになりました！` },
+            { gender: "女性", age: 49, text: `大学をきっかけに浦和に来て、もともと好きだったスポーツ観戦をしたい！地元のクラブを応援したい！と思っていたところ、初めて連れて行ってくれた人がいまの夫です♪子どもも今年成人になり立派な浦和サポに育て上げました笑。いつまでも思い出の地「浦和」に浦和レッズがあり続け、家族みんなで観戦できるのが幸せです！` },
+            { gender: "男性", age: 13, text: `はじめてパパの涙を見あげたのは、優勝したあの日` },
+            { gender: "女性", age: 47, text: `スタジアム全体で選手を後押しするサポーターの姿に感動 熱狂しサッカーだけでなくスポーツ全般が好きになった\n\n毎週末の試合のことを考える1週間が楽しみになった` },
+            { gender: "男性", age: 26, text: `頑張ってる姿を見て自分も頑張ろうと思えた。` },
+            { gender: "男性", age: 64, text: `最初はホームゲームのみの参戦だったが仲間が出来てアウイェーにも参戦するようになり、全国に行くことが出来て楽しむことが出来ている。　また、年齢差がある人とも会話が出来るようになっている。` },
+            { gender: "男性", age: 60, text: `息子が小1になった時から親子でメインアッパー指定席観戦。ピッチを俯瞰するチカラを養えたようで、高学年の頃にはチーム随一のパスセンスで私を魅了してくれた。` },
+            { gender: "男性", age: 53, text: `アウェイ参戦を通じて、北海道から九州まで\n日本全国を体感することが出来ました` },
+            { gender: "男性", age: 57, text: `離れて暮らす子供達と埼スタのホームで現地集合で一緒に観戦、浦和レッズを通して子供達に会う事が出来る。` },
+            { gender: "男性", age: 41, text: `浦和レッズがあることによって\n今までは1人で過ごしていた時間が\nスタジアムで知り合った仲間、浦和の街で知り合った仲間と試合を一緒に観たり浦和の街でお酒を共にしたり楽しい時間が増えました。また親もサポーターなので共に同じ目標をもち会話も増えとても良い時間を過ごせています` },
+            { gender: "男性", age: 49, text: `・夫婦2人で参戦していますが、夫婦仲が良くなりました。\n・子供が小さい時から遠方のアウエー観戦に行っており、家族旅行のきっかけとなり、家族の思い出が増えました。\n・会社で浦和レッズ仲間と出会い、会話が増えました。\n・Jリーグが開幕してから約30年、毎週末にサッカー観戦ができて、勝っても負けても引き分けても、心の底からチームと選手を応援できることが毎週やってきて、その環境が当たり前にあることに人生の生きがいを感じています。` },
+            { gender: "男性", age: 55, text: `余命1ヶ月と宣告された妻に、妻の大好きな西川周作選手のユニフォームに大原でサインをもらってプレゼント出来た。最後で最高のプレゼントでした。` },
+            { gender: "男性", age: 49, text: `浦和がなければ出会えなかったかけがえのない仲間と駒場・埼スタ・遠征先で共の歓喜し、時には涙しながら闘えたこと` },
+            { gender: "男性", age: 23, text: `浦和レッズやJリーグに出会ったおかげで友人との関わりがより深まった` },
+            { gender: "男性", age: 75, text: `1993年のJリーグ開幕の年、どこのチームを応援しようかと迷っていました。その時、埼玉県のチームで負け続けていたJリーグのお荷持ちチームがありました。Jリーグ人気でチケットが手に入らない中で、やっと埼玉県民枠でゲットしたチケットは駒場での名古屋戦のホーム試合でした。その時は0-5の大負けで選手たちが泣きながら退場していったことを鮮明に覚えています。それが原因で、娘3人を含めた5人家族がレッズの応援沼にはまり込み、J2陥落の憂き目をものともせず、唯一のJリーグ優勝やACL優勝を3人の娘たちや孫と一緒に祝うことが出来ました。浦和レッズのおかげで家族の絆を今でも保てています。5年前に埼玉スタジアムの近くに移り住み、家族みんなでホーム試合を楽しめる日々が最高の人生です。これからも体力の続く限り浦和レッズ一家でありたいと思います。We are REDS!` },
+            { gender: "男性", age: 55, text: `1996年天皇杯セレッソ大阪戦（栃木グリーンスタジアム）で、レッズサポの多くの友人と知り合いました。\nその後、ホームはもちろん。アウェイも一緒に観に行く仲になりました。\n日本代表戦もいくようになり、ジョホールバルまで行っていましました。` },
+            { gender: "男性", age: 31, text: `初対面の相手でもレッズが好きだという共通点があれば、一気に仲良くなれます。\n会うのが2度目の相手と一緒に泊まりがけのアウェイ遠征に行ったこともあるぐらいです。\nたとえ1人で観戦に行ったとしても、名前は分からないけど仲の良い仲間と度々スタジアムで会います。\n浦和レッズがこれからもホームタウン、ファンの交流を結びつける存在になり続けますように！` },
+            { gender: "男性", age: 62, text: `スポンサー企業に勤めて40年、Jリーグ開幕当初はあまり関心がなかった。外訪でレッズの話題でお客様との親近感が深まりました。レッズのおかげで営業成績が上昇し、気づけばシーズンチケットホルダー20年超になりました。これからもレッズを応援していきたい！` },
+            { gender: "男性", age: 50, text: `彼女を初めてレッズ戦を誘ってから、どっぷりと浦和レッズに染まって、今ではレッズの会話で盛り上がってます。\n浦和サポの熱い声援が、2人の関係をより強いものとなってます。` },
+            { gender: "男性", age: 58, text: `浦和レッズとの出会い\n\n  初めてのスタジアム観戦は、1993年11月27日、浦和レッズー清水エスパルス戦（国立競技場）。\n赤と黄色に二分されたスタジアムの素晴らしい雰囲気。\n澤登正朗選手のフリーキックからの得点が印象的で、清水が2-0で勝利。\n最後まで諦めずに応援し続ける浦和サポーター。\nあの日の赤いゴール裏に魅了されました。\n\n    1994年シーズンからは、チケット販売初日に電話をかけまくり、チケット争奪戦に参戦するように。\nそして、1998年シーズンから浦和のシーズンチケットホルダーに。\n今シーズンで、シーズンチケット28年目へ。\n\n    一生懸命に電話をかけ、初めてのチケットをゲットしてくれた当時の彼女に感謝です。\nあの日、赤いゴール裏を見てなければ、今の自分はありません。\nスタジアム観戦に行くたびに、初めてのスタジアム観戦の全ての記憶が蘇ります。` },
+            { gender: "男性", age: 27, text: `子供の頃から、「ディズニーよりも埼スタに行きたい！」と言うほど『サッカー』そして『浦和レッズ』に魅了されていた。社会人になった今でもサッカーを続けているのは、浦和レッズの選手・サポーターの皆さんがその魅力を伝えてくれたから。多くのレッズサポーターが「浦和レッズが生活の一部」になっていると思うが、今は私もその中の1人だ。` },
+            { gender: "女性", age: 34, text: `私の人生において浦和レッズに出会って良かったことは、生きる希望を貰えたことです。\n中学3年でイジメにあってすごく悩んでいた時、毎週末リーグ戦があって勝つ度に「楽しい！この楽しい週末のために、辛いけど学校頑張っていこう！」と思えました。\nその年は2006年、リーグ初優勝の年。\n浦和レッズに出会っていなかったら、恐らく今私は生きていません。\nどんなに辛いこともレッズが勝ち続けてくれたから、優勝してくれたから、耐えてこれました。\n\nまた、主人とも浦和レッズがきっかけでスタジアムで出会い、結婚して今では1歳の息子を連れて親子で観戦しています。\n私にとって浦和レッズは命の恩人であり、家族に出会わせてくれたクラブです。\nこれからも親子3人で応援していきます。` },
+            { gender: "男性", age: 64, text: `日々の生活の活力源となり\n忘れていたワクワク感を思い出させてもらいました。` },
+            { gender: "女性", age: 44, text: `スタジアムでたまたま席が近い人たちとハイタッチして、ゴールや勝利の喜びを分かち合う幸せ` },
+            { gender: "男性", age: 33, text: `約22年前、小学生の時初めて埼玉スタジアムに足を運んだ。福田正博の引退試合。そこでスタジアムの広さ、人の多さ、そして歓声に惚れた。その後、父と指定席で観戦が続き、ついにゴール裏へ。ぼくは、生まれつき背が小さく手足が短い、その為ゴール裏に行ったら試合が見えなくなるよと言われたが、そんなの関係なく一緒になって、声を出し届けたいと思った。浦和の試合が日常化し、1人でもスタジアムへ足を運んでは全力でサポートしていた。周りのサポーターから声をかけてもらうようになり、こんなぼくに挨拶をしてるださる人が増え、とても嬉しかった。リーグ優勝、ACL優勝、ルヴァンカップ優勝、天皇杯優勝を名前も知らないサポーターと勝ち取り、喜び合い、最高の仲間ができました！今では30歳になり、浦和レッズがきっかけで唯一、1人だけ高校の友だちとも続いている。そして、スタジアムで出会った、仲間とホーム、アウェイ関係なく一緒に戦っています。ぼくの人生＝浦和レッズ。勇気やPRIDEを持たせてもらったサポーター。もしかしたら、ぼくが誰かに勇気やPRIDEを持たせたかもしれない。\nそんな浦和レッズが100年先も人と人を繋げる存在であってほしいです！` },
+            { gender: "男性", age: 51, text: `かけがえの無い仲間が出来た。` },
+            { gender: "男性", age: 42, text: `私と浦和レッズの付き合いは、開幕の頃から。応援してきて、気づけば33年です。\nゴールが決まった瞬間の爆発は、今でも特別で、あの一瞬だけで一週間の疲れが吹き飛びます。\n\n私が好きなのは、攻めている浦和レッズです。勝ち負けはもちろん大事。\nでも、負けても攻めていた試合なら、ちゃんと次へ進める。試合の結果ひとつで、次の試合までのモチベーションも、日常の質も変わります。気持ちの上げ下げも含めて、もう浦和レッズは『生活』そのものになっています。\n\nそういえば小学生の頃、「僕と浦和レッズ」という作文を書いて、選ばれて冊子になったことがありました。あの頃からずっと変わっていません。\n浦和レッズは、ただ勝てばいいクラブじゃない。いつ何時も、浦和レッズに関わる全ての人が「世界制覇」を本気で目指し続けなくちゃいけないクラブだと思っています。たとえどんな状況でも、その言葉を下ろさない。そこが、浦和レッズの矜持です。\n\nだから私は、これからも変わらず応援します。\n世界を獲りにいくクラブを、世界を獲りにいく気持ちで。` },
+            { gender: "男性", age: 20, text: `1位よりも準優勝とかの方が多いけど毎週末の試合が楽しみでレッズがかけがえのない存在だし生きる理由みたいな感じになった` },
+            { gender: "男性", age: 56, text: `昔は子供達と家族で観に行ってました。今はカミさんとゴール裏で応援しております。\n仲間も増えました。` },
+            { gender: "男性", age: 58, text: `2005年からレッズを応援するようになり、いつしか共に戦うようになった。\nそれまでの仕事中心の人生が変わりいくつもの喜怒哀楽、残りの人生も楽しみです。` },
+            { gender: "女性", age: 62, text: `浦和レッズは私と息子を結ぶ最強のコミュニケーションツールです\n息子はＪリーグが始まった年に生まれました\n学生の頃は部活動などがありスタジアムで観戦する機会がなかなかありませんでしたが　社会人になりスタジアムに行くことが出来るようになりました\n年々スタジアムに行く回数が増え10年ほど前からシーズンチケットホルダーになりなした\n今は独立して家を出ていますがレッズの試合には一緒に行きます\nホームゲームはもちろんですが近郊のアウェイにも行きます\n遠方のアウェイにも1シーズンに1試合は行きたいね　という感じです\n\nスタジアムへの道中　試合の前の待機時間など　浦和のこと　サッカーのことはもちろん　フツーの世間話など　色々な話をします\nこの時間が無かったら息子と会話する機会が無いかも知れません\n私たち親子に共通の話題と会話の時間を作ってくれた浦和には感謝です\n健康に気をつけて出来る限り長くスタジアムに行きたいと思います` },
+            { gender: "男性", age: 23, text: `年の離れた弟との会話に困らない` },
+            { gender: "男性", age: 43, text: `大人になればなる程、新しい出会いが減少する傾向になるかと思いますが浦和の街では『浦和レッズ』で沢山の方々と会話が出来る素晴らしさがあります。\nホーム試合当日、埼玉スタジアム向かう前にユニフォーム着てスーパー寄った際にはスタッフさんから『今日、試合だけど私行けないから応援たのんだよ！』\n『今日は勝てそうかい！？』などたわいない会話や声掛けしてくれる素晴らしいサッカーの街・浦和！！\n20年ぶりの優勝パレードに向けてやっていきましょう！` },
+            { gender: "女性", age: 36, text: `好きになった人が好きだった浦和レッズ。会ってる間もちらちら試合を見たら、試合結果によって不機嫌になったり、休みの日に遊びに誘っても試合だからと断られたり。最初は存在が憎いくらいでした。笑\n何でそんなに大好きなの、嫌な結果になることがあってもまた行くの、と聞いても、長年スタジアムに通ってないとわからないよと言われ、悔しくて一人で行ってみることに。\n行ってびっくりしました。みんながわくわくした顔でスタジアムに向かって、試合が始まると熱い応援が始まって、直近で見る選手たちはとてもカッコよくて。ゴールした瞬間に周りが一斉に立ち上がって喜んで、ゴール裏は更に歌声が強くなって、どんどんスタジアム全体が盛り上がっていって、こんな風に子供から大人までみんなが全力で楽しむ様子を目の当たりにするのが久しぶりで、正直とても興奮して楽しかった。\nそれからも現地観戦を続けていくうちに、大雨に振られた試合も、ボロボロに負けて悔しい試合も、逆転勝ちで知らない人とみんなで訳がわからないくらい喜び合う試合も体験して、ついにゴール裏にも飛び込んでしまって、そこで新しく友達ができて。\nどんどん選手をもっと後押ししたい、ゴール裏のみんなと戦いたい、の気持ちが溢れ各地の遠征に行くようになり、ついにCWCのアメリカ遠征にまで行ってしまいました。\n今では同じサッカーが好きならどんな人とでも話ができるようになって、驚くほど世界が広がって、本当に感謝しています。\n好きな人とは今でもサッカー友達です。` },
+            { gender: "女性", age: 26, text: `祖父は気難しい人で、小さい頃は少し苦手だった。でも、チーム創設時からシーズンチケットを持っているレッズのホームの試合には毎回連れて行ってくれた。ゴールが決まっても、試合に勝っても、祖父が喜んだり浮かれたりしているところを見た覚えはない。ただ、負けた時はいつも不機嫌になることだけ覚えている。\n祖父が数年前に脳出血を起こし、言語障害が残ってからは、昔のことも、レッズのことも、祖父の口からは出てこない。今は私1人で埼スタへ観戦に行っているが、あの頃祖父はレッズをどんな風に見ていたのかと考えてしまう。気になるけど、もう聞けない。そんな感じで5年くらい経った今年の正月、祖父の家で録画していた昨年のレッズの試合を観ていると、祖父が突然「タナなんとかくんは出てないのか、ほら、ちっちゃいけど頑張ってた子がいただろう」と言い出した。「田中達也？？」と聞くと、そうだそうだ、と。\nもうできないと思っていたレッズの話。もうとっくに引退して、今年コーチとして帰ってきたんだよ？などと教えながら、がむしゃらに頑張る選手の姿は祖父の記憶のどこかにしっかりと残っていたんだなと思った。奇跡的に出てきた"タナ"の2文字だけで、田中達也のことを言っているんだとわかったのも、毎週サッカーに連れて行ってくれたじーちゃんのおかげ。そもそも苦手だった祖父と2人で出かけるようになったのも、浦和レッズがあったから。選手の勇姿を目に焼き付けながら、私はこれからもレッズを観に行くんだと思う。` },
+            { gender: "男性", age: 52, text: `埼スタホーム試合日におけるオーロラビジョンに映される選手紹介、スタジアムの盛り上がりに感銘感動しております。自分は、ミシャ時代に妻、息子とゴール裏自由席に立ち、しびれる洋楽に合わせ、大声を出し、選手を鼓舞して作る埼スタホームスタジアム雰囲気は世界一だと思います。毎年、ホームスタジアム選手紹介は変化しますが、ミシャ時代が一番良かったように思います。先日開催された興梠さん引退試合では、ホーム指定席から応援でしたが、昔懐かしいメンバーとスタジアム選手紹介曲が流れ、感涙しておりました。浦和レッズってやっぱり良いなと再認識した瞬間でした。` },
+            { gender: "男性", age: 31, text: `2006年リーグ優勝が原点、昨年はサッカーを始めた小1の子と埼スタ初観戦で絆を実感できた瞬間。子供の成長と共に今後楽しみです。` },
+            { gender: "女性", age: 36, text: `20年前に出会った浦和レッズがきっかけで、スポーツ選手の力になれる仕事を選びました。今は浦和レッズには直接関係がないことがほとんどですが、これからもスポーツ選手のために頑張るとともに、浦和レッズとの出会いに感謝しています。` },
+            { gender: "女性", age: 56, text: `小学校から始めた子供のサッカー(遠征)などで中々行けなかったレッズ戦が高校を卒業を機に行ける回数が増え、主人との会話、買い物時間も増えました。1年ほど通うと新しい仲間もでき埼スタで会えるのが楽しみになり、より一層応援にも力が入るようになりました。仲間に出会えたことに感謝してます。` },
+            { gender: "男性", age: 54, text: `試合開催日に向けて選手と同じように一所懸命に仕事をしています。その結果、1年間があっという間です。` },
+            { gender: "男性", age: 59, text: `新しい仲間ができた` },
+            { gender: "男性", age: 53, text: `埼スタまでジョギング、サイクリングでビールが美味い。\nレッズ中心生活で体調管理。` },
+            { gender: "女性", age: 65, text: `約20年、友達4人とシーズンチケットで観戦しています。年一くらいのアウェイ観戦は観光も兼ねての旅行となっています。最近では孫とレッズの話題で盛り上がっています。私の人生をハッピーにしてくれているのが浦和レッズです。` },
+            { gender: "女性", age: 37, text: `浦和レッズが私の一部です。物心がついたころから、家族で行っていました。\n高校・大学のころはホーム戦だけでなく、父とバイクでアウェイに行くこともありました。\n彼氏が出来たときには\n試合に連れていき、彼氏にもハマってもらいました(笑)\nその彼氏が旦那になり、のちに娘が生まれ…臨月過ぎまでスタジアムに居ました\n産まれて1ヶ月後には試合へ連れていきました。\n胎内で聞いていたからか、どんなに声援がすごくても爆睡する子でした\n臨月すぎまで観戦・生まれて1ヶ月で観戦ということを、繰り返すこと4回\n今では5人の子どもに恵まれました。\n子どものおかげで、授乳室サポ仲間もできました\n\n5人の子どもたちには、浦和レッズを散りばめた名前にしました\n子どもたちも気に入ってくれているのか、\nお友だちや、先生たちに由来を話していて、、、浦和レッズLOVEの生活をしています\n現在、末っ子長男は1歳6ヶ月で、浦和レッズが大好きです！TVでアニメではなく、試合を流すと泣き止んで見ています\n暇さえあれば、ボールを蹴り、旗を振り「オーオー」と応援しています\nアウェイや、選手の推し活で、\n家族のお出かけにもなっていて楽しいです！\n\nこれからも我が家の生活の一部です\nWe are reds!!` },
+            { gender: "男性", age: 15, text: `アウェイに行って、日本のいろいろな地域を知ることができた。` },
+            { gender: "女性", age: 49, text: `夫婦共通の趣味探しに迷走してきた22年。\n23年目に最適解が判明。\nそれがJリーグ！\nありがとう浦和レッズ！！` },
+            { gender: "男性", age: 58, text: `妻と出会った、1995年1stステージ最終戦\nAlways love You\n浦和レッズと共に歩み\nいつまでも` },
+            { gender: "男性", age: 50, text: `無趣味だった俺を25年も夢中にさせてくれてありがとう。これからも共に。` },
+            { gender: "男性", age: 48, text: `高校1年生の息子\n難しい時期だけど浦和レッズの事で\n盛り上がり、毎回一緒にスタジアムに\n言ってくれる。\nそれを見て奥さんが微笑む。` },
+            { gender: "女性", age: 52, text: `浦和レッズができてからほぼ一人で応援していましたが、スタジアムで出会った人と結婚しました。レッズの予定に合わせて家庭の予定が決まる生活になりました。` },
+            { gender: "女性", age: 12, text: `学校などでJリーグの話で盛り上がれたり、浦和レッズがあったから自分がサッカーに興味を持つことができました。また、浦和レッズを通じた友達も多くでき、人間関係にもよい影響を与えてくれています。` },
+            { gender: "男性", age: 35, text: `一昨年のホーム広島戦のチケットをたまたま知人から貰ったことで浦和レッズにどハマり。\n土日は飲み歩いていた私ですが、予定はほぼ浦和レッズに変わりました。\n試合はいつも刺激的で、試合がいつも楽しみでした。\n職場でレッズの話をしすぎて、レッズを通じて会社でも新しいコミュニティをでき、本当に生活を変えてくれたと思っています。\nありがとうレッズ！We are REDS！` },
+            { gender: "男性", age: 63, text: `2023年4月23日のリーグ戦第9節、等々力競技場での川崎戦が、Jリーグの存在価値の一つを証明してくれていたと思います。\nこの試合終了後にACLの決勝１stレグの開かれるサウジアラビアへスタジアムから直接向かう事になっていた浦和の選手、スタッフ。それを川崎フロンターレの関係者の方たちが素敵な対応で送り出していただけました。\n試合終了後に等々力競技場の場内アナウンスで「浦和レッズにかかわる皆さん、ACL決勝頑張ってください！」とあると、川崎サポーターからも大きな拍手が。\n大型ビジョンには『掴み取れ ACL！頑張れ　浦和レッズ！』と表示されました。\nそして、直接空港に向かう事になっている浦和の選手たちのクールダウンのためにピッチを開放していただき、クールダウンをする選手たちには川崎のサポーターの方々から「頑張れ！」の声が送られていました。\nそして選手、スタッフの乗るバスが出発するのを見送る際には、浦和サポーターがスタジアムのバス出口周辺で例の如くの大チャント。それを川崎の運営の方々には最後まで許していただきました。等々力競技場は住宅地のすぐ脇にあるので、この時の状況は普通であれば近隣の方たちからのクレームも相当あっただろうと思います。あの時の川崎の方々の対応には本当に感謝しかありません。\nこの時に感じたのは、Jリーグが開幕した頃から比べると、本気でサッカーを好きになり、そして好きなチームを愛し、チームを超えて日本のチームが世界へ出ていくことを求め、そのために他チームであってもそれが日本のサッカーが世界の挑戦する姿を、本気で求めることができる、そしてその為には普段はライバルであってもお互いをリスペクトすることのできる文化が根付いてきているのではないかと感じます。\nJリーグが開幕したころからはかなりレギュレーションが変化したアジアチャンピオンへの道、浦和が2007年にACL優勝した頃は「ACLは罰ゲーム」などと言われていましたが、浦和が2度目のアジアチャンピオンになった2017年以降は徐々にその”罰ゲーム”に本気になるクラブが増え始めたような気がします。浦和が早い時期からJリーグの他チームに先駆けて本気で「アジアへ」そして「世界へ」と願い頑張って戦ってきた姿は、もしかすると100年構想を加速させる要因になっているのかもしれないと思うとうれしいです。` },
+            { gender: "女性", age: 66, text: `日韓W杯でサッカーに興味を持った私が、ある時同僚に「一度埼スタにレッズの試合を見に来てくださいよ」と言われ、初めて埼スタの座席ゲートをくぐった時の景色と興奮は今も忘れられません。あれから22年、浦和レッズは私の生き甲斐で、彼女は永遠のサポ仲間です。` },
+            { gender: "男性", age: 40, text: `私が浦和レッズのサポーター、妻は何となく私と一緒に埼スタへ行っていました。\nそれが昨シーズン、妻が突然サッカーにハマりだし、選手のユニフォームを買ったり、現在の浦和レッズだけでなく元レッズの選手が所属するJ1,J2,J3のチームを追いかけるまでになりました。\n\n２人でアウェイ観戦もするようになり、旅行の機会も増えて夫婦で共通の趣味ができたので浦和レッズに感謝です！` },
+            { gender: "男性", age: 53, text: `試合のスケジュールが決まると、自分の1年の予定が決まるようになりました` },
+            { gender: "女性", age: 51, text: `浦和レッズゴール裏で主人と出会い、結婚。主人と一緒にレッズを追いかけて、埼スタはもちろん、国内外を一緒に応援に行ってます。レッズがあったから、主人と出会えました。` },
+            { gender: "男性", age: 39, text: `父親に物心ついた頃から連れて行ってもらっていた駒場スタジアム、今では父親・自分・娘の3代で埼スタに応援に行っています。` },
+            { gender: "男性", age: 14, text: `人生紆余曲折あったが気が落ち込んでいる時でも夢中になれて心の支えにもなってくれた` },
+            { gender: "男性", age: 54, text: `妻との出会いはサポーター仲間の紹介でした。忘れもしないクラブワールドカップのセパハン戦、豊田スタジアムのゴール裏にて。お互い浦和サポーターとして出会い、仲間として旧交を深め、1年後に交際が始まり、2010年に結婚、子供も生まれて家族3人で埼玉スタジアムに通っています。ホームはシーチケで埼スタへ通い、旅行を兼ねてアウェイにも行ったり、子供は毎週駒場でハートフルクラブ、まさに生活の一部となっています。` },
+            { gender: "男性", age: 3, text: `子どもを小さいころからスタジアムへ連れて行ったおかげで、成長した子どもと一緒に観戦できる幸せを毎試合感じています。\nいつかは・・・孫も連れていきたいです。` },
+            { gender: "男性", age: 28, text: `普段の生活では、出会えない方と出会えました。\n20代の私が30.40.50.60代の方と仲良くなり、力で飲んだり、埼スタで会ってレッズの話ももちろん、他の話でも盛り上がるなんて会社では無い非常に貴重な出会いだと感じてます。\nレッズがあるから、色々な地で応援して、美味しいものを食べて、試合について話して｡\n後はリーグ優勝して皆で思いっきり嬉し泣きできたらもう幸せです。` },
+            { gender: "女性", age: 53, text: `コロナ禍で世界が変わってしまった時、とても沈んでしまった心を、再開したJリーグと浦和レッズが救ってくれました。あの時はそれがどんなに生きる力を与えてくれたことでしょう。今でもその頃の試合を見返すと涙が出てしまいます。それから浦和レッズが私にとってかけがえのない元気の源になりました。` },
+            { gender: "男性", age: 13, text: `僕は人と話すことが苦手でしたが、試合の翌週の学校へ行くと浦和レッズの会話ができる。勝っても負けても共通の話題があるお陰で、今では話すことの苦手意識は無くなったような気がします。` },
+            { gender: "男性", age: 67, text: `jリーグ発足当初から観戦、応援しています。親子４人が成長に伴い、仕事や学業等ですれ違いが多くなる中、週末は全員がスタジアムに集合し、絆が深まりました。子供たちのが結婚し、独立した今は、孫たちも一緒に３世代で観戦しています。浦和レッズは、我が家のかけがえのない交流の場であり心をつなぐ文化です。勝ち負けに一喜一憂しながらも、感情的にならないのは、jリーグ発足当初の理念を忘れずに理解しているからだと思っています。jリーグ及び日本サッカーのさらなる発展のためには、各チームの垣根を越えたファミリーとしてリスペクトし合う精神が欠かせないと思います。日本人の精神性等のよさを発揮して、世界に誇るスポーツ文化を築いていくことが、私の願いです。` },
+            { gender: "男性", age: 32, text: `Jリーグ開幕元年の93年に生まれた自分にとっては、今後も一緒にJリーグと歩む事ができる事に感謝し、前身の三菱自動車工業サッカー部に携わった全ての皆様への感謝を忘れず、後世に語り継げるように、浦和レッズと共に歩める事が、人生の生き甲斐です。\n\n小学校1年生からサッカーを始め、大学卒業するまでプレーを続けた「楽しむ」\n社会人となり、サッカー2級審判員として活動した「支える」\n学生時代や審判活動、社会人として働きながら並行して「観る」\n\n常に自分の中には、「サッカー」「浦和レッズ」の存在があったからこそ、\n夢中になれる喜びがあり、今後も一緒に成長していきたいと思う。\n\n小学生時代、浦和レッズJr ユースのセレクションを受験した思い出や小学生時代に対戦相手として闘った片慎吾(競技運営部)くんとの再会\n\n社会人となり、2級審判員としてレディースやアカデミーの試合に携わり、サポーター目線の気持ちを抑えて、阿部勇樹監督にボロクソ言われる懐かしい思い出(笑)\nでも、駒場でレディースの試合に副審として携わり、ピッチ上で熱狂的な声援を経験できた事は一生の思い出でもあり、小学生時代のチームメイトであった長嶋洸(ノジマステラ神奈川相模原所属)ともピッチ上で、久々の再会\n\n審判活動に一区切りをつけ、2025シーズンからシーチケホルダーとなり、北ゴール裏で振り旗を新規申請し振り始め、ホーム皆勤参戦アウェイも含めれば現地36戦走り抜けた1年\n仕事の調整つかずアメリカ行けず後悔\n\nスポーツ用品メーカーに勤務している都合上、選手やスタッフとも稀にやり取りが発生するので、嬉しい気持ちを隠しながら業務に勤しみ、心の中では「We Are REDS !」\n\nスタジアムに行けば、気づいたら仲間が増えLINEグループもでき、自分以外は平均年齢50代のおじちゃん達と、週末になればゴール裏で熱くなれる最高の仲間たち\n\nまだまだ、数えきれない程のエピソードはありますが、Jリーグと浦和レッズが身近にあったからこそ、間違いなく人生が豊かになっていると実感できるし、いつしか浦和レッズのスタッフとして働きたい目標を持ち続け、百年構想リーグを駆け抜け26-27シーズンも駆け抜けたい。` },
+            { gender: "男性", age: 57, text: `J開幕前頃から、私は仕事が上手くいかず、悩み、落ち込み、ふさぎ込み、職場では明るく振る舞うものの、自宅では部屋に篭り、両親とも会話すらしない状況でした。今思えば鬱の状態でした。開幕年のある日、兄弟から駒場のレッズの試合に行こうと誘われ、結婚して自宅を出て生活している兄弟に現状の自分を知られる事を引け目に感じた私は行く事にしました。\n当日はデーゲーム、素晴らしく晴れた日に緑の芝生、両チームのユニフォームの色が鮮やかで、スタジアムでの応援も、それまで見ていたプロ野球とは違い感動したのを今でも覚えています。今より明るい赤のユニフォームがとても新鮮でした。なかなか勝てないと聞いていたチームは勝利しました。\nその後、兄弟から複数持っていたシーチケを2席保持しないかと言われ、翌年からシーチケ民に。\n試合に行く事で外に出るようになり、人と交流し、何より試合に行く事が楽しくなり、いつしか鬱から脱却。普通の生活、仕事が出来るようになり今に至ります。あの時、兄弟に誘われ、レッズに出会っていなければ、引き篭り続け、最悪今この世に居なかったかもしれないと思っています。\n今は仕事の都合で参戦出来なくなっていますが、シーチケは保有し続け、息子が参戦しています。私はあと数年後、退職した後に又通う事を楽しみに、今はダゾーンにて観戦、応援しています。` },
+            { gender: "男性", age: 54, text: `兄妹の仲が深まった` },
+            { gender: "男性", age: 40, text: `2人の息子を2歳からスタジアムに連れて行ってます。\n私はもちろん彼らにとっても浦和レッズは人生の一部です。\n長男は今年の春から小学生になり、特別大会からシーズンチケットで通います。` },
+            { gender: "男性", age: 29, text: `付き合っている彼女を浦和レッズの試合に誘い、私の家族と観戦して仲を深めました。今は彼女が妻となり家族総出で埼スタに通っております。試合を振り返りながら美園駅までを歩くのがとても大切な時間になっています。` },
+            { gender: "男性", age: 58, text: `子供が大学への入学とともに家を出て横浜で1人暮らしを始めましたが浦和レッズの試合の度に帰って来てくれて今まで以上に良い関係が築けておりサッカーを通して親子の絆が深くなった気がします。` },
+            { gender: "女性", age: 82, text: `私達親子は三郷で1998年ごろ駒場のチケットがなかな買えず困り果てて居ました！仕事場でぼやいていたらたまたま居合わせた仲間が家が駒場の近くでチケット余っている上げると2枚呉れました、そのサッカーの一試合が病み付きに成りました！後援会に2002年に入りチケットを半年分づつ買いその後レックスクラブが出来70歳に入り12年に成ります！サッカーが有る日は3日前ぐらいから待ち遠しくてそわそわ落ち着かず当日の朝等は4時頃から目が覚めゆっくり寝ていられません、今82歳ですが浦和レッズが有るから元気で生きていられると思って居ます。` },
+            { gender: "男性", age: 28, text: `幼少期、物心が着く前の私は、父の影響でスタジアムに足を運んでいました。\n当時はサッカーのルールもわからず、2006年、優勝争いをしていたチーム・スタジアムの熱量に魅了されていただけでした。\n背が小さかったことで弄られることが多かった私にとっては、田中達也選手が憧れでした。赤い11番のユニホームを着る夢は叶いませんでしたが、今では妻もサポーターに。\n将来は子供を連れて、私の幼少期と同じように、夢中になれる・憧れられる存在を見つけられる、そんな「ミラクルスタジアム」に連れて行きたいと思います。` },
+            { gender: "男性", age: 17, text: `僕は高校2年生です。\n僕が浦和レッズを好きになったきっかけはサッカーをはじめた頃、槙野選手に憧れたからです。\nその頃コロナ禍になり学校は休校になりましたが、僕は毎日槙野選手のユニフォームを来て友達とサッカーをして友情を深めたのは一生の宝です。\nレッズの魅力は、選手や試合だけでなく、サポーターのすごさです！僕の生きがいで憧れです。\n今の僕の生きがいはレッズです。レッズがあるから勉強や部活など大変なことも頑張れます！\nまた、レッズのすごさは、チームだけでなく、ホームタウンの力が大きく、試合には老若男女が足を運び、イベントもさかんで、地域に根ざしたチームだと思います。\n僕は今は横浜に住んでいますが、将来は浦和に住みたいです。\n昨年は、レッズのスポンサーの藤島建設さんのイベントに妹達が当選して家造り体験に参加させてもらいました。とても貴重な経験をしたようでした。\nレッズは、チームが、地域、企業、行政、ファンサポーターなどたくさんの人達と共に歴史を刻んでいると思います、それは本当にすばらしいと思います。\nレッズは僕にたくさんのことを教えてくれて、勇気やたくさんの楽しみ、喜び、生きる力を与えてもらっています！ありがとうございます。\nお母さんと行った、ACL決勝の試合は一生忘れません！\n別の試合でも友達とゴール裏で応援したのもよい思い出です。\n家族や友達との関係も深めてくれます。\nこれからも応援しています！\nいつもありがとう。浦和レッズ！` },
+            { gender: "男性", age: 61, text: `REDSとSON\n浦和の試合を観戦するようになって何年経過しただろう。　\n駒場から始まり埼玉スタへ。\n私の家族は妻に兄妹弟、子供達三人の五人家族。兄弟は幼稚園の頃からサッカー少年。サッカーを始めたキッカケはなんだったかな?？今となっては思い出せない。埼玉県でサッカーをするってことはおのずと『浦和を好きになる→試合を観戦する』って方程式と成り立つ。メインスタンドから”凄げぇ?凄げぇ?”と観戦していた子供達、だんだん大きくなってゴール裏へ。父は相変わらず座っての応援スタイル。時が経ち子供達は自立し大人へ、家も家族も持ち、普通に会話していた毎日から会話が無い毎日へ。嬉しいけど寂しい毎日。そんな中、浦和の試合には毎回駆けつけて以前と変わらない声を張り上げる親子『WE ARE REDS♪WE ARE REDS♪』と。\nオヤジは言葉にはしないけど、昔と変わらず隣で声を張り上げるセガレに感謝感謝。\nREDS SUPPORTERで良かった事。\nREDSがＪを制し→ルブァンを制し→天皇杯を制し→クラブワールドカップを制するまでは熱い応援をします。\nそして、いつの日が孫と一緒に\nWE ARE REDS♪ \nWE ARE REDS♪` },
+            { gender: "女性", age: 28, text: `これまでサッカーの試合を一度も見たことがありませんでしたが、さいたま市に引越ししてから出会った彼をきっかけに浦和レッズを知り、一緒に見に行くようになりました。今ではレッズサポ夫婦として毎週試合を見に行くことが生き甲斐です。二人の仲を深めてくれた浦和レッズ、Jリーグに出会えたことに感謝しています。` },
+            { gender: "男性", age: 64, text: `・Jリーグ発足の翌年に生まれた娘、3年後に生まれた息子を赤ちゃんのときから、駒場サッカー場、大宮サッカー場、さいたまスタジアムに連れていき、家族全員で応援してきた。\n・息子は幼稚園の頃にサッカーを始め、家族で息子の試合を応援に行くようになった。\n・息子は結婚したが、ホームゲームには今でも息子と２人で応援に行っている。\n・娘も孫を連れて家族全員でさいたまスタジアムに応援に行くようになり、孫ともサッカーの話ができるようになった。` },
+            { gender: "男性", age: 64, text: `クラブ会員加入のきっかけは、家族共通の話題を作りたく1991年11月に長男が誕生したときにクラブ会員（会員の№50）になりました。\nそれから子どもが３人となり親子５人でスタジアムに通いました、その時の長男が昨年第一子のパパ、今や子どもたちの方がチームや選手のことを知り、家族でレッズ談義しています。` },
+            { gender: "女性", age: 35, text: `持病の関係でただでさえ言葉も分からない海外なんて…と思っていましたが、CWC応援のためアメリカまで行くことができました！\n行くにあたってたくさんの課題がありましたが、浦和のため！と、どうにか3試合とも応援できました！\nこんなことがない限り、海外に行くなんて考えてもいなかったので、結果は残念でしたが良い経験ができ、浦和には感謝しています！\nまた新しい経験ができるように、J1優勝、ACL優勝、CWC優勝と応援を続けていきます。` },
+            { gender: "男性", age: 64, text: `初めての家族３人揃って、10日間以上のアメリカ遠征。ルーメンフィールドから港に向かって歩いていると、背中から聴こえるＫＯＲＯＫＩのチャント\nリーベルプレートのサポーターが叫んでくれました。私は慎三のＴシャツを着ていたことに、気が付きました。` },
+            { gender: "男性", age: 42, text: `高校の時、高校が浦和だった事もあり地元の友達と\nレッズの試合を観に行った。\n\nそれから今日まで浦和レッズが\n日常になってしまいました\n\n仲間も増え今では何か連絡せずとも週末には同じメンバーが揃います\n\nレッズは趣味とは違う\n自分の人生の中で大事な一部なのかもしれない\nまた王者になった時の\n感動する瞬間を見せてくれ！` },
+            { gender: "男性", age: 63, text: `サッカーに興味が無かった彼女から、レッズ大好きになった妻に！そして毎試合、埼スタまで参戦してます。` },
+            { gender: "男性", age: 56, text: `国立で行われたルヴァンカップ決勝で、社会人になって独立した都内に住む息子と久々に会うきっかけができた` },
+            { gender: "男性", age: 53, text: `私には、たった1人の弟がおり\n弟の家族の事情で何年も会う事が\n出来なくなっておりました。\n弟が、浦和レッズのサポーターで\n良く埼玉スタジアムに応援に行っている事を知り、シーズンチケットを取れば\n試合の時には、必ず会えると思い、\n連絡をしました。\n浦和レッズの応援に行くと言う理由で\n会う事が出来ました。\n今は、私の息子と３人で、\nシーズンチケットを取り\n埼玉スタジアムに浦和レッズの\n応援をしています。\n弟と会う機会を与えてくれた\n浦和レッズに感謝しています。\nありがとう。` },
+            { gender: "男性", age: 60, text: `国境を越えても、結局辿り着くのは「We are REDS!」\n海外旅行先で言葉が通じなくても、「URAWA」の単語で心が通じ合った経験が多々あった。ドイツ、イタリア、アメリカ、東南アジアなどなど` },
+            { gender: "男性", age: 54, text: `アウェイ参戦して相手サポとコミュニケーションしてみると、いがみ合っていると思っていたサポーター同士が意外とサポートガチ勢同士とという繋がりから、密かに互いをリスペクトしていることを肌で感じた。\n特に鹿島とガンバ` },
+            { gender: "男性", age: 54, text: `浦和レッズと共に仲間が増えた\n俺たちの街から世界に繋がる楽しみができた\n共に再び、世界を目指そう` },
+            { gender: "女性", age: 55, text: `1996年頃だっただろうか。\n西京極競技場で行われた京都パープルサンガ戦を観に行った。埼玉に住んでいた私は、大阪の会社に就職した学生時代の友人を誘い、観光も兼ねた小さな旅だった。\n\n試合前、京都土産の定番「よーじや」のあぶらとり紙を10冊、会社の同僚用に買った。座席の下に置いたまま試合に夢中になり、スタジアムを後にしてしまったことに気づいたのは、ずいぶん歩いてからだった。慌てて戻ったが、もうそこにはなかった。\n\n翌週、幸運にも駒場のチケットが手に入った。試合前、待機列でMDP（マッチデープログラム）を何気なく開くと、欄外の伝言スペースの文字が目に飛び込んできた。\n\n「西京極の試合で、よーじやのあぶらとり紙の忘れ物を拾いました。おそらくレッズサポーターだと思い、駒場のインフォメーションに預けています」\n\n思わず息をのんだ。\nそんな親切な人がいることに驚き、しかもそれをMDPに投稿してくれるなんて――胸が熱くなった。\n\nインフォメーションで、無事にあぶらとり紙を受け取ることができた。拾ってくれた方のお名前は分からず、直接お礼を伝えることは叶わなかった。\n\nあれから30年。\n私は今もレッズサポーターとして埼玉スタジアムに通い続けている。きっとあの方も、今もどこかで浦和を応援しているのだろう。\n\nあのときの忘れ物は、確かに受け取りました。\n本当にありがとうございました。\nこの想いが、いつかあなたに届きますように。` },
+            { gender: "男性", age: 69, text: `娘との共通の話題がてきて、一緒に飲みながらの会話が弾むようになった。` },
+            { gender: "女性", age: 51, text: `浦和に引越してきて、何も知らず試合帰りの武蔵野線ラッシュに遭遇！それから試合日や結果を意識するようになり、試合を見に行くようになり、今やシーズンチケットホルダーに。転居先が浦和で良かった！レッズにハマれて今最高に楽しいです！` },
+            { gender: "女性", age: 59, text: `レッズ好き同士で結婚しました。子供もレッズが好きで話が楽しい。アウェイ遠征で旅行も楽しみ、各クラブのマスコットに会いに行けるのも嬉しい。` },
+            { gender: "男性", age: 26, text: `今では遠くに住んでいる幼馴染も、レッズの試合のおかげで、「埼玉スタジアム集合」にして定期的に会うことができている。` },
+            { gender: "女性", age: 61, text: `高校の同級生３人でレッズのサポーターとなり毎年アウェイに応援がてらの旅行が楽しみな還暦2年生。ずっとずっと続きますようにそしてありがとう！` },
+            { gender: "男性", age: 57, text: `生涯通じての趣味が出来たことと、妻との共通の趣味でもあり、子供とのコミュニケーションツールです。アウエーは旅行の機会でも有りますね。` },
+            { gender: "男性", age: 25, text: `浦和レッズがある事で親子の会話が広がった！` },
+            { gender: "男性", age: 65, text: `浦和レッズが降格した年のインターネットの掲示板を通して知り合った仲間と　今も一緒に試合観戦している。` },
+            { gender: "女性", age: 60, text: `浦和レッズは私達夫婦の絆を強く結びつけてくれました。私達は再婚同士で私は浦和から都内の旦那さんの家に引っ越しました。私は埼スタにいつも試合観戦に行きましたが旦那さんはレッズサポではなかったので再婚してからは埼スタに行くことはなくなりました。私は友達もいない知らない都内での生活で…何ヵ月が過ぎ突然髪の毛が抜けてしまい病院での診断は環境の変化に気持ちがついていけないとの事でした。優しい旦那さんはある日浦和レッズの試合があるから一緒に観に行こうと、熱狂的なレッズの試合を一度観てみたいと言ってくれました。私の精神面を気遣っての愛に満ちた言葉でした。今では私より旦那さんの方が熱狂的レッズサポになり都内から高速を運転して毎回試合観戦を楽しんでいます??ありがとう旦那さん、ありがとう浦和レッズ??` },
+            { gender: "男性", age: 16, text: `全く接点のない関係から、ゴール裏のグループと仲良くなり、毎試合一緒に行くだけでなく、レッズランドでのフットサルや、その他の趣味活動を共にするようになった` },
+            { gender: "女性", age: 57, text: `普段会話も出来ない様な、雲の上の上司(役員)と会話が出来る様になり、声を掛けてもらえる様になった。\n退社した会社の元同僚とスタジアムでバッタリ合い、今では毎試合一緒に観戦している。` },
+            { gender: "男性", age: 1, text: `赤い絆が再開のきっけになりました` },
+            { gender: "女性", age: 34, text: `どんなに辛いことがあっても、埼スタに来れば喜怒哀楽を皆で共有して気持ちが軽くなる！\n疲れてたり落ち込んでたりした時、自分の感情表現をどうしたらいいのか分からなくなった時、埼スタに来て選手がゴール決めたらサポーターも共に喜び、点を決められたら悔しがる。そんな一瞬一瞬を皆で喜んで怒って泣いて楽しんでいる時に、落ち込んでる場合じゃないなと前向きになれる。次また頑張ろうって生きる活力になってます。` },
+            { gender: "男性", age: 36, text: `私と父、そして私の娘の3世代でいつも埼スタに通っています。私たち家族を繋いでくれる場所、それが浦和レッズ。かけがえのない、地域のそして私たち家族の誇りです。いつもありがとう。We are REDS !` },
+            { gender: "男性", age: 55, text: `駒場のそばでサッカーをして育ちました。他の土地に住むようになっても、Jリーグとレッズのお陰で、浦和に帰ることができています。` },
+            { gender: "男性", age: 52, text: `ゴール裏暦３年ですが、SNS経由で知り合った方や名前は知りませんが顔見知りのサポーターに出会えたこと。` },
+            { gender: "男性", age: 42, text: `清水エスパルスファンを辞めて浦和レッズを応援し始めてから21年間嬉しいことも悲しいこともいっぱいありましただけど、サポーターをやめようと思った事は一度もありません。\n浦和レッズがあるから仕事も頑張れます！` },
+            { gender: "男性", age: 31, text: `サッカーに興味を持っていなかった彼女と一緒にスタジアムへ行き、今では妻として一緒にシーズンチケットを買ってスタジアムに一緒に行ってます！` },
+            { gender: "女性", age: 63, text: `現在二人の娘達は、それぞれよい伴侶を得て自立しています。下の娘が中学１年生になった時から家族４人で駒場スタジアムや埼玉スタジアム、アウェイの試合まで、一緒に応援に行くようになりました。勝った時は喜びながら帰路に着き、負けた時でも反省会と称していろいろな話をしました。娘達と父親との仲も良く、今でも週末には孫を連れてきてくれて楽しく過ごしています。私達夫婦はシーズンチケットで観戦を続けていますが、2025年は孫も一緒に埼玉スタジアムで応援しました。4歳と5歳なので、まだまだ席に座り続けることが難しい時間もありますが、これからもタイミングが合えばスタジアム観戦を増やしていけるかなと思ます。三世代でサッカー観戦して、試合後は盛り上がれたら幸せだなと思います。2025年はそれぞれ一試合ずつの観戦でしたが、義理の息子達も交えて楽しく過ごせました。スタジアムの大応援の中、許される限り浦和レッズを応援し続けます。` },
+            { gender: "女性", age: 49, text: `わが家は6人家族です。\n長男は今17歳ですが、2019年頃からレッズの大大大ファンです。彼が生まれる前からの約30年以上続くレッズの歴史を事細かく把握していて、長男のすごさを尊敬しています。\n選手の名前、いつの試合か、どんなシュートシーンがなど、事細かに知り尽くしています。\n私は2022年頃からレッズが大好きになりました。天皇杯優勝の試合は国立競技場でみましたが、本当にすごかったです！\n横浜在住なのですが、時間を作って、埼スタや近郊のアウェイの試合を観に行き応援しています。\nレッズが好きになってから、長男との会話がとても増えました。\n子どもたちが選手の名前をたくさん覚えてくれるようになりました。\n次男、長女、次女は数年前からハートフルサッカーによく参加させていただき（次女は今も）親子共々楽しい時間を過ごさせていただいています。\nレッズの試合やイベントを通して、家族がサッカーのことを知ったり、楽しい時間を過ごす機会が増えました。\nレッズに出会う前は、私は、家事、子育て、仕事に時間を費やす日々でしたが、レッズを応援したりイベントに参加する機会を通して、好きなことをして楽しく生きることを知りました。たくさん世界が広がりました。\n昨年度は、娘たちがフラッグキッズに選ばれたり、私や夫が選手サイン会に当選して、素敵な時間を過ごさせていただきました！\n心から感謝です。\n選手と関われる機会はとてもHappyですし、一生ものの大切な思い出になります。\nこれからもずっとレッズを応援しながら、楽しく人生を送りたいと思います！\nいつもありがとう！浦和レッズ?` },
+            { gender: "女性", age: 41, text: `娘と共通の趣味が出来た！` },
+            { gender: "女性", age: 37, text: `浦和レッズは私にとって間違いなく生きていく糧になってます！子どもの頃から応援してきましたが、学生のときは試合に行くために勉強とアルバイトを頑張り、社会人になったらアウェイの遠征にも行けるように仕事も頑張り、辛いことがあってもレッズのおかげで今の私があります！\nレッズが負けたときは選手と同じように悔しい気持ちになったり、ときには涙したり。レッズと共に一喜一憂できることは幸せなことです！だから浦和レッズに関わる人みんなの笑顔が見たい！選手と一緒に笑いたい！そんな気持ちです。改めて浦和レッズに感謝！` },
+            { gender: "男性", age: 28, text: `もともとはある選手の少年団が自分の家族が所属していた縁で、埼スタに行って応援していました。\nそこから年数を経て私が社会人になり関東圏外の会社に就職したこともあり埼スタ現地での応援が遠のきました。ですが、転職で関東に戻って来た際にせっかくだからと次のシーズンチケットの会員になりました。\nしかし、次シーズンが始まる前の時期に仕事の関係で鬱病を発症してしまい、一時休職をして、外に出るのも億劫になりました。\nけれども、「シーズンチケットを買っているから埼スタに行ってみよう」と当時の自分にとって大きな一歩を踏み出しました。\n埼スタに向かうまでの電車に乗ってるときには帰ろうか、引き返そうか何度も迷いましたが、実際に埼スタに行ってレッズの迫力のある応援、選手の頑張りを見て、「また行こう」と思い、何度も現地でレッズを応援に行きました。\nそれも手助けとなり職場復帰をして、現在では日常生活を送れています。\nそのため、浦和レッズが自分にとってベースになっていると実感しています。` },
+            { gender: "女性", age: 30, text: `夫婦でともに浦和レッズサポーターの我が家。浦和レッズのおかげで日々の会話に困ったことがありません。ホームアウェイ含めデートの行き先にも悩みません。\nついに先日、1歳の息子が埼スタデビューしました。\nこれからは家族でいっぱい観戦に行きます！` },
+            { gender: "男性", age: 58, text: `奇跡って本当にあるんだと思った。そして次の瞬間、生まれて初めて震えが来た。` },
+            { gender: "女性", age: 62, text: `長崎在住のサポーターです。夫の仕事関連で2年間埼スタに通いました。2年め、娘が大病を患いいけない時期もありましたが、娘は槙野選手が大好きで、闘病の頃の支えになっていました。退院後、主治医からの許可が出て埼スタで観戦した時には涙が出ました。その娘も今年成人式を迎えました。浦和レッズで働きたいと言う夢に向かって、埼玉大学でサッカー部のマネージャーやってます。` },
+            { gender: "男性", age: 55, text: `アウェイ観戦を通じて色々なところを訪れる楽しさを知りました。` },
+            { gender: "女性", age: 51, text: `私は生粋の浦和市民ですが、初めからファンだったわけではありません。98年に大学を卒業後入社した先に偶然レッズサポの先輩がいて、試合に連れて行かれたのが、私の浦和レッズ人生の始まりでした。\n\nそして、なんとその人が夫となりました。\n負けると機嫌悪くなるし、初めの頃は(なんなのコイツ…)と思ってましたがw\n\n結婚して24年目。今となっては私の方が熱くなったり激昂したりで、冷静な夫に諭される事もしばしば、というありさまです…笑\n\n浦和レッズ我が人生なり。` },
+            { gender: "男性", age: 43, text: `多くの人から出身地浦和を「サッカーが盛んな浦和レッズの街」とイメージして貰えるようになり、他地域出身の人と打ち解けやすくなった。` },
+            { gender: "男性", age: 40, text: `私が浦和レッズに魅せられたのはもう何年前の事だろう？1995年5月3日の国立競技場でのヴェルディ川崎戦です。 岡野さんらしさ満点のなんか変なゴールで同点に追いつき試合はPK戦へ！ 最後の5人目に水内さんが決めての勝利でした！ 当時9歳の私でしたがあの時の瞬間は今も鮮明に記憶に残っています。 その小学生だった私の同級生のお姉さんに「チケット余ったから行かない？」 何気ないその一言こそが私の浦和レッズ人生の始まりです。 会うたびに「浦和レッズは優勝する」 口癖のように言っていたお姉さんはインフルエンザにより15歳と言う若さで天国へと旅立ちました。 しかし私の浦和レッズへの熱はあの頃から冷めることはありません！ そんな浦和レッズサポーターの仲間は沢山います。 同じ瞬間に歓喜し、同じ瞬間に叫び、同じ瞬間に泣く私の浦和レッズサポーターは財産であり、かけがえのない宝物です！ タイトルに何よりもこだわり続ける浦和レッズと言うクラブは私の人生そのもの！ 「PRIDE OF URAWA」です。 これからも沢山の仲間に感謝し、共に頂点目指し戦います。 浦和レッズありがとう！ そしてこれからもよろしくお願いします！` },
+            { gender: "男性", age: 22, text: `今まで行ったことがなかった都道府県や国に行くことができた` },
+            { gender: "男性", age: 51, text: `結婚23周年を迎えた夫婦の休日に、「サッカー観戦、意外に面白いですよ。」と会社での会話を思い出し、思いつきで妻と三男坊連れて近場の埼スタへ。雰囲気・臨場感・非日常感に魅了された家族は一気に引き込まれ、都合があえば長男次男、その彼女達も含めてサッカー観戦へ行くように。夫婦共通の趣味になり、家族間交流の一つになり、生活の一部になりました。\nありがとうJリーグ。ありがとう浦和レッズ。` },
+            { gender: "男性", age: 52, text: `浦和レッズがあったから、Jリーグがあったから掛け替えのない家族が増えました。浦和レッズがあったから家族みんなで地元クラブを応援し始めて、そんななか兄が仕事の関係で地方都市に引っ越して浦和レッズじゃない地方都市のクラブに鞍替えた！なんてこった！その時はカテゴリーが違っていたから直接対戦はなかったが、ゴール裏で太鼓を叩き殆どのアウェイ戦にも遠征するほどの熱の入れよう。J1に上がった年もありその時は浦和のホームで兄はアウェイ側、弟の私はホーム側で応援する時もあった。浦和じゃないクラブでそんなに応援するんかいって気持ちもある中で出会いがあった。兄はアウェイゴール裏で3人目の嫁さんをGETしやがったのだ（笑）そんな状況では兄弟の確執は深まるばかりか、、と思いきやお互いをリスペクト。地方の小さなクラブでまだまだサポーターも小規模なので浦和のゴール裏に関心があるとの事で視察に来ることも。みんな浦和に住んでいた時よりも絆は深まった感もあり新しく築いた兄家族ともお互いの家を行き来したり旅行に行ったり以前よりもむしろ充実した時間を過ごすようなったとさ。\nめだたしめでたし。あゝ、Jがあってよかった！` },
+            { gender: "男性", age: 45, text: `40歳を越えて新しい友人ができました` },
+            { gender: "男性", age: 28, text: `埼玉県民として、世界に誇れる地元の誇りが出来たこと。一番好きな色が「赤色」になったこと。` },
+            { gender: "男性", age: 49, text: `どんなに弱くても浦和駒場スタジアムでの観戦が自分にとってのサポーターになる原点です。\n今は埼スタでシーズンチケットホルダーとして通っていますが、昔はシーズンチケットホルダーのキャンセル待ちを申し込みしても買う事は出来ずに、試合当日に駒場スタジアム前での余っているチケットを譲ってもらえるように交渉してようやく入場するのがやっとです。\n1993年と1994年は全くスタジアムで観戦出来ずに、1995年からチケットを入手して参戦出来ました。\nそれでもシーズンチケットホルダーになれたのは、2004年からです。\n今でもシーズンチケットホルダーですが、最初に入手出来た喜びは忘れる事が出来ません。\nソレくらいに自分の人生には無くてはならない宝物です。\nこれからも生きている間はシーズンチケットホルダーで有り続けます。` },
+            { gender: "女性", age: 52, text: `ホームの毎試合後にお酒を飲みながら語り合う仲間が出来た` },
+            { gender: "男性", age: 54, text: `レッズがあるから人生楽しい` },
+            { gender: "男性", age: 61, text: `息子や娘が社会人になってもいっしょに埼玉スタジアムにレッズ戦を観に行っています。息子とは仙台や福岡に遠征したこともあり、共通の話題になっています。一昨年から孫も参戦することもあり、楽しみがふえています。` },
+            { gender: "男性", age: 37, text: `応援には力がある、と信じることができるようになったことです。\nここまでレッズにはまるようになったのは2011年10月のアウェイマリノス戦でした。そのころは、休日にも関わらず会社の上司の半分業務命令のような形で時々参戦していました。あまり事情も分からず、いつもと同じように（半分イヤイヤ）参戦したのですが、その日は何か気配が違いました。前半、先制されて嫌な気配が漂っていましたが、応援リーダーの方々に奮い立たされて、応援のボルテージが上がりました。いつの間にか私もその中に入っていました。そして、逆転勝利。周りの方々には泣いている人もいて、何がこんなに人を動かすのだろう、と思いました。後から、その時にレッズは降格危機だったと知りました。しかし、打算を忘れて応援したこと、そしてそれに呼応するように勝利を呼び込めたことは言葉にできない体験となりました。「打算なしに」というところがポイントで、純粋に応援することを今でも心掛けています。そのほかにも、スタジアムに行くことそのものが試合の結果に関らず楽しいし、うちの家族の中心はレッズになっています。大きな意味で他チームのサポーターも仲間だと感じられ、試合がある日には気軽に声をかけたりしています。埼スタの自分の席は家だと思うし、毎年変わらず会える近くの席の方々は、もはや親戚か、それ以上です。` },
+            { gender: "男性", age: 48, text: `国内外含めて今まで行ったことのない土地に行くことができた` },
+            { gender: "男性", age: 51, text: `我が家にとって、浦和レッズは単なるサッカーチームではなく、家族の歩みそのものです。\n子どもが生まれたばかりの頃、抱っこ紐でスタジアムへ通ったのが始まりでした。小学生になり、息子自身がサッカー少年団で忙しくなると、次第に一緒にスタジアムへ行く機会は減っていきました。\nそして中学生になり、いわゆる「親離れ」の時期。会話が減る難しい年頃ですが、気づけばまた、私たちは同じスタジアムの空気の中にいます。\nそこでは、特に熱心に言葉を交わすわけではありません。けれど、同じゴールに歓喜し、同じプレーに熱くなる。隣に座り、同じ景色を見つめるだけで通じ合えるものがあります。\n幼い頃の記憶と、今の成長した姿。それをつないでくれたのは、いつも浦和でした。我が家にとって「浦和」は、理屈ではない家族の絆です。` },
+            { gender: "男性", age: 45, text: `私が中学生のときに始まったJリーグ。いま、中学生の息子は浦和レッズの選手になることを夢見て一所懸命練習している。息子の背中を当時の自分に重ね合わせながら、一緒に浦和レッズを応援しています。` },
+            { gender: "女性", age: 32, text: `物心ついたときからレッズがそばにありました。対戦相手を思い浮かべながら、47都道府県を覚えました。年号の暗記にも、背番号を使いました。ACLをきっかけに世界の文化を知りたくなって、大学は国際関係学を専攻。わたしの人生はレッズのおかげで成り立ってます！` },
+            { gender: "女性", age: 55, text: `野球特に巨人がが大好きだった母が2002年のW杯でイタリア代表のトッティの大ファンになり、サッカーが大好きになりました。\nイタリアへは2度ほど試合観戦旅行に行ったり、地元である浦和のシーズンチケットを買いホームは全試合、行ける時にはアウェイへも行くようになりました。\n膝が痛いとか言ってますが、楽しそうです。\n試合に一喜一憂で笑ったり怒ったりしてますが、生き甲斐なのか元気な年寄りで嬉しいです。` },
+            { gender: "男性", age: 66, text: `異母姉妹ができた（フレンディアの名付け親となり、実の娘と2人の親となった)` },
+            { gender: "男性", age: 30, text: `ゴール裏で勝って本気で喜んだり、負けて悔しくて泣いたりする瞬間。社会や周りの目を気にして生活することが多い中、ゴール裏は素直な私でいられる場所です。` },
+            { gender: "女性", age: 28, text: `浦和レッズを好きになるきっかけになったテレビで見ていた2006年リーグ優勝。\n父と2人、負けて泣いた2017年ACL決勝。\n優勝の瞬間、知らない人とも抱き合った2023年ACL決勝。\n世界の壁に泣いた2023クラブW杯。でもあの時現地で掴み取った1勝は永遠に忘れない。\n全てが私の人生における宝物です。` },
+            { gender: "男性", age: 54, text: `気づけばJリーグが発足して33年。職場の同僚からチケットを譲ってもらい、国立競技場でのヴェルディ川崎vs浦和レッズ戦を観戦し、その場で浦和レッズのファンになり、足しげくサッカー場(スタジアム)に通うようになりました。シーズンチケットを取得して30年。いろいろな思い出があります。\n\n浦和レッズは、Jリーグのお荷物と言われていたクラブでしたが、サポーターの数ではどこのクラブにも負けない規模でした。チケットの発売は、初日は電話予約のみで、なかなか入手できませんでした。友人らと手分けしてチケットを交換して観戦していました。\n電話予約は東京、神奈川、埼玉あたりからではなかなかつながらず、地方からだと比較的繋がりやすいことが分かり、発売日に実家のある九州に帰り、実家の電話機がダイヤル式だったため、公衆電話からかけ続けました。電話がつながってチケットが確保できた時は、ガッツポーズを何度もするくらいの嬉しさがありましたが、つながっても予定枚数終了のアナウンスを聞いた時の哀しさは、大げさに聞こえるかもしれませんが、サッカー場(スタジアム)に行けない絶望感を感じるほどでした。 アウェイの試合は、プレイガイドの窓口での販売があり、徹夜で並んだこともありました。柏サッカー場や三ツ沢球技場での試合のチケットは入手しづらく、カシマスタジアムのチケットは全く入手できませんでした。\n\nネットが発達し、電話をかけることも窓口に並ぶこともなくなりました。シーズンチケットも入手できて、チケット争奪戦に関わることはなくなり、今では懐かしい思い出の一つになっています。` },
+            { gender: "男性", age: 63, text: `30年前、余りにも弱い浦和に涙し、たまに勝つと次の試合までが楽しみでたまらなかった。\nカミさんが作ってくれたカツサンドを駒場で一緒に食べ、「勝つ三度」を祈って試合に臨んだ。\nでも、負け続けた。あれから、３０年妻も私もお互いに還暦を過ぎ子育ても終わり、のんびりと埼スタでの試合を楽しもうと考えて、再びシーズンチケット会員に・・・。\nレッズが浦和にある喜び、レッズが未だに優勝できない苛立ち、我が子のような選手たちの無事な活躍を祈る日々。\n気がつけば、サポーターの平均年齢を上げる立場になったけど、心は今でも、駒場の時と同じように赤く赤く燃えています。\n負けて、どんなに悔しくても泣く事はやめました。\n勝って嬉し涙を流すことに決めました。\n今年こそ！その気持ちを持って、埼スタに夫婦でみんなと戦います。\nWe are Reds！` },
+            { gender: "男性", age: 6, text: `RBC会員です。会社にフットサルサークルができました。` },
+            { gender: "女性", age: 51, text: `J2にいたこともある浦和レッズに世界大会にまで連れて行ってもらった。強く願えば実現できることをこれからも示してほしい。レッズを通してこれからも新しい景色を見たい。` },
+            { gender: "男性", age: 28, text: `浦和レッズで出会った彼女と今年結婚します！！！！\n浦和レッズ最高ーーーー！！！` },
+            { gender: "男性", age: 56, text: `・埼玉スタジアムが海外の友人との集合場所になった！\n・埼スタが、年1回、海外で暮らす友人との集合場所になった！\n・埼スタが、海外の友人との集合場所になった！\n（詳細内容）\n・娘が日本でバレエ教室に通っていたころに一緒にバレエをやっていた方たちが、今では国内海外でプロのバレエダンサーになっていて、いつしか、１年に１回シーズンオフに帰国した際に、集合場所が埼スタになっていた（もちろん観戦するためにですが・・・）。\nすべて、私がコーディネートしています。\n娘も10年以上スウェーデンに在住しており、帰国した際は、ダンサー仲間と必ず埼スタで観戦しています。` },
+            { gender: "女性", age: 45, text: `33年前、当時愛知に住んでました\n人気すぎて　子供チケットしか買えず中学生の私は弟を連れて三重県鈴鹿市開催の『浦和レッズvs名古屋グランパス』が初めてＪリーグ観戦でした　土砂降りの中でしたが近くで観る選手たちのプレーやボールの音はとても迫力があり　Ｊリーグにのめり込んでいきました\nその後、縁あってガチガチの浦和サポーターと出会い結婚　友達1人もいない浦和の街で暮らしはじめました。\n浦和レッズのキーホルダーひとつカバンにつてるだけでも\nカフェに1人で入っても、カウンター皆さんレッズサポさんで話が盛り上がりつい長居したり　スーパーのレジの方から『これから試合？私の分も応援よろしくね』って声かけられたり\n犬とお散歩中も色浦和レッズきっかけでお話しはじめてお友達増えたり　\n時には選手や監督を見かけて『次こそは勝ってくれー』と声もかけれず念じたり\n浦和の街にきて、浦和レッズが好きでいて温かい優しい方々に出会えて日々幸せに暮らしています\n\n百年構想優勝、ACL出場権獲得、リーグ優勝今年は楽しみが沢山です\n優勝して浦和の街で沢山の方々と喜びを分かち合いたいです\nWeAreREDS!` },
+            { gender: "女性", age: 51, text: `1998年 フランスw杯　　初めての一人旅でした\n　　チケット問題が話題になった大会でしたが　私もチケットの確約ないままの渡仏\n　しかも本来自身がはいるはずのツアーがキャンセルが相次ぐツアー中止に　どう会社主催の別のグループの空きツアーに急遽組み込んでもらった為にツアー日程の詳細なしおりなどはなく　当日空港で　との説明でしたがこちらも情報の共有がしっかりできてなくて用意がありませんでした　　仕方なく旅の詳細を把握できないままフライト　途中グラレンプールの空港に立ち寄り　乗り継ぎ手続き　　あまり海外経験の薄い私　色々説明はされたがとりあえずオッケーでやり過ごし聞き取れた英語を空港内の喫茶コーナーで整理\n　えーテンなんちゃら　あとアフターとか言ったから　〇〇後…　あれまさかの10オクロック　ヤバいこんな何もない空港に１０時間　冷や汗ものでした　まず私東南アジア系のスパイシーな食事が苦手なので空港内で下手な飲食ができません　情報整理に入った店も　アメリカン系のドーナツ屋さん　　これは人見知りなどしている場合ではない　とにかくw杯ツアーの参加者くさい人を探し　同ツアー客に行程表を見せてもらわねば!\nすると天の助け　浦和の神は我を見放さなかった　　隣に浦和のミニタオルをカバンにつけたお姉様が\n　行程表を見せてもらうべく声をかけると\n妹と友人夫婦の４人で参加しているので　と自身の行程表をくださいました　　その後ジョホールバルの歓喜の話で盛り上がり旅行中共に行動させてもらい　すっかりサポ友になりました\n　　今考えるとよく行ったなと自分でも思う旅行でしたが　新たなサポ友ができ結果的には有意義な旅でした\n\nまたフランスでは当時の浦和の監督原博実氏ともお会いし　お話をさせてもらい　帰国後はすっかり原博実信者になりましたw` },
+            { gender: "女性", age: 47, text: `小６の娘が七年間ハートフルを続けました。たくさんの仲間やコーチ、スタッフの方の関わりの中で成長できました。今の娘の夢は浦和レッズに関わる仕事がしたい！中学でもサッカーを続けたい！になりました。素敵な夢ややりがいを与えてくれて感謝しています。これからが楽しみです。` },
+            { gender: "男性", age: 44, text: `妻と結婚する前、妻に連れられ浦和レッズの試合を観戦するようになりました。\n結婚して10年目に、スタジアムを毎日見れる場所へ引越しました。\nいま、浦和レッズを応援できるのは、妻のおかげです。\nありがとう。` },
+            { gender: "男性", age: 36, text: `浦和レッズを通して感情を共有できる大切な仲間と出会えたことで、スタジアムに行く楽しみが増えた。` },
+            { gender: "男性", age: 55, text: `自分の中で最も印象深い試合は、2017年のACL決勝でラファエル・シルバ選手が北側のゴールにぶち込んだシーン。あんなに歓喜したのはなかったです。これに加えてレッズが出る様々な決勝戦での勝利は、自分の人生にもこの上ない歓喜をもたらしてくれます。これからももっともっとあんな幸せを、私に加えてレッズサポーターみんなに味わわせて欲しいです！これからも応援しています。` },
+            { gender: "男性", age: 52, text: `会社の取引先で使用しているグッズを見つけていただいて会話が弾み、良い人間関係を築くことができた。` },
+            { gender: "男性", age: 2, text: `柏で勝った帰りでした。ひとりでアウェイに行って、勝って、その気持ちを誰かと少しでも共有したくて、ふと立ち寄ったのが、浦和レッズを応援している地元のカフェでした。\n\n後から来た方も同じ試合を応援した帰りだと分かり、自然と会話が盛り上がりました。その流れでかけていただいた一言が、今振り返ると自分の日常を広げるきっかけになりました。\n「浦和サポでフットサルやってるんで、来ませんか？」\n迷う前に「行きます」と返していました。\n\n初めてフットサルに参加したのは2023年5月頃です。知り合いがいるわけでもなく、埼玉スタジアムのフットサルコートへ向かいながら、どこに行けばいいのか、誰に声をかければいいのか分からず、少し不安でした。けれど、試合でもない日に赤いユニフォーム姿の集団を見つけた瞬間、足が自然にそちらへ向きました。「ここに行けばいいんだ」と思えたことを覚えています。浦和レッズという共通の話題があるだけで、初対面でも会話に困ることはありませんでした。\n\n何かが劇的に変わった日があったわけではありません。何度か参加して顔を覚えはじめると、スタジアムでも声をかけてもらえるようになりました。ゴール裏で席を取って座っていたときに、フットサルのメンバーがわざわざ来て「いつもこのあたりで応援してるんですか？」と声をかけてくれたことがあります。家族や友人と観戦することもありましたが、スタジアムの中に自分の居場所がもう一つ増えたようで、素直に嬉しかったです。\n\n気づけば、試合やフットサルが終わったあとも、そのまま浦和で一緒に過ごす時間が増えていきました。浦和周辺で飲んだり、遠征に行ったり。浦和レッズがきっかけでできたつながりが、日常の中でも続いていくのが嬉しかったです。\n\n今は、そのフットサルの運営も担当しています。きっかけは、これまで中心になって回してくれていた方が、ずっと同じ負担のまま続けるのが難しくなりそうな時期があったことです。\n仲良くなったメンバーとのつながり自体は消えないかもしれません。でも、この「集まれる場」がなくなってしまうのは嫌でした。だから、自分が引き継ぐことにしました。\n浦和レッズが好きという共通点があるだけで、世代や性別や職業など関係なく楽しめる場は、残しておきたいです。\n\nそして、そこで見つけた新しい夢があります。フットサル専用のSNSアプリを開発しています。自分のように、フットサルを通じた出会いをきっかけに楽しみが増える人を増やすために、日々開発運営をしています。\n\n浦和レッズやJリーグは、私の日常にワクワクを増やしてくれました。試合やイベント、遠征のワクワク。仲間と応援したり、フットサルをしたりするワクワク。仲間が増えていくワクワク。夢に向かうワクワクです。浦和レッズがなければ行くことがなかった土地や国も多くあります。正直、サウジアラビアに行く日が来るとは思っていませんでした。実際にCWC2025のアメリカでも、現地の方々とフットサルをしたり、そこで出会った浦和サポーターを自分たちのフットサルに誘ったりして、仲間が増えました。行った先に仲間がいることが、また次のワクワクにつながっています。\n\nこれからも浦和レッズとワクワクを共に過ごしていきたいです。` },
+            { gender: "女性", age: 66, text: `もう、何年前になるのでしょうか。\nアウェイ川崎戦等々力スタジアムで突然『いつも◯◯に来てくれるお客さんですよね』と声をかけられました。\n(なんでこんなところに◯◯で買い物している私のことを知っている人がいるんだ？)と不審な思いながら、振り向くと、見たことがあるようなないような赤い人がおりました。\nその赤い方は『私、◯◯でレジにいるんです』\nあ?！確かに！試合前は、よくそのスーパーにユニを着てお弁当やおつまみを買ってから、埼スタに向かっていました。\n彼女は、私よりずっと長いレッズサポで、ユニを着て買い物する私達(家族四人がサポーターです)を、見るたびに(レッズサポだ)と思っていたそうです。\n彼女のお宅も、家族全員レッズサポとのこと。それからは一気に仲良くなり、そのスーパーに行くと、どんなに混んでいても必ず彼女のレジに並び、レジの間の短い時間にレッズの話をするのが楽しみになりました。『次のアウェイ戦に行くのか』『◯◯のゴールには感動した』等々。話したいことはたくさんありますが、あまり、盛り上がって、他のお客さんの迷惑になったり、彼女の仕事の邪魔にならないよう気をつけながら、レッズにまつわる喜怒哀楽を共有しています。\n買い物に行くんだか、彼女に行くんだか(笑)\n今では、埼スタでアウェイのお土産を渡したり、彼女の手作りのお菓子をいただいたり…。ゴール裏に\n赤いユニが結んでくれたご縁は` },
+            { gender: "男性", age: 61, text: `Ｊリーグがスタートした当時、浦和で生まれ育った自分は就職・配属で遠い福岡で一人生活していました。仕事で毎日が忙しく、他に興味もなくただ過ぎていく日々の中、Ｊリーグ、浦和レッズが誕生し、自分の中で初めて地元浦和への強い地元愛があることを自覚、浦和レッズのサポーターとなったことは必然でした。それから長い年月が過ぎましたが「浦和愛」も変わらず、約40年ぶりに地元・浦和に帰ってきました。人生も終盤となり、これからも愛する地元・浦和で浦和レッズを応援、サポートしていきます。` },
+            { gender: "男性", age: 58, text: `浦和レッズのサポーターになるまで、無趣味だった私、これまで行くことのなかった地方都市に遠征する機会がとても増えた。\n特に天皇杯等、普段中々レッズと対戦することのないチームとの試合は新たな発見も多く楽しみの一つです。` },
+            { gender: "男性", age: 42, text: `高校入学時、初めて話した内容は、浦和レッズのこと。それ以来、一緒に浦和レッズの試合を観戦しており、今では隣同士のシーズンチケットホルダーになりました。これからも数多くのタイトル獲得の瞬間を一緒に過ごしたいです。` },
+            { gender: "男性", age: 52, text: `夫婦と娘、息子の4人全員で浦和レッズを応援している。選手一人一人の良さや課題について家族で話題にし、みなレッズが優勝することを願っている。2026のハーフシーズンは久しぶりに家族４人分のシーズンチケットを購入した。本当に開幕が待ち遠しく、一家で楽しみにしている！` },
+            { gender: "女性", age: 53, text: `浦和レッズを好きになったのは\nたっちゃん（田中達也選手）がまだチームで活躍していた時です。\nそれから、興梠推しとなり、北ゴール裏に行くようになり、益々浦和レッズが好きななって行きました。ファンからサポーターに変わりました。\n負けても、ブーイングしながら、後押しをし、今季、、たっちゃんが帰ってきました！\n旦那様も浦和レッズで出会いました。\n\n今季も北ゴール裏から、選手を後押しし、優勝を目指す気持ちは、浦和レッズに関わる皆様と同じ気持ちです！We   are  Reds?` },
+            { gender: "男性", age: 56, text: `今から20数年前、とあるプロジェクトの打ち合わせで社外の担当者と初顔合わせした時、向かいに座った人の胸ポケットに浦和レッズのキーホルダーがチラリと。私もレッズのグッズを持っていまして、お互い「お？」と気付いた様子。あとで声掛けしたところ意気投合。その時スタジアムには会社関係の数人や弟と参戦する事が多かったのですが、その人から友達グループに誘ってもらえた事で仲間がたくさん増えました。今でもその人を含め、世代を超えた子供や学生、社会人まで、たくさんの仲間達とレッズを通していろいろな思い出を共有し、互いに歳を重ねてこれた事は私の人生で大切な財産であり、仲間と素晴らしい時を繋いでくれたのは紛れもなく「浦和レッズ」があったからです。こういう経験は他にはないと思っています。` },
+            { gender: "女性", age: 54, text: `職場と家の往復だった狭い世界から、“浦和レッズが好き”という老若男女ごった煮の世界へ導いてくれた。それまでの自分がいかに狭い世界に留まっていたのか教えてもらった。年齢や性別に関係なく友人知人ができて、20年以上細く長く交流が続いている。\nレッズの試合へ行くために、後ろ向きな性格が前向きで行動的になった。レッズのために信じられないくらい大きな声が出せるのだと知った。レッズの勝敗で大人が本気で泣いたり笑ったりするのだと知った。\n渋る両親を説得して埼スタへ連れて行ったら帰りは2人ともサポーターの顔になっていた。\nここ数年では家族の中で最後まで渋っていた妹も遂にサポーターになった。\n2004年のリーグ戦初制覇の日は私の誕生日。22年経った今でも自慢している。` },
+            { gender: "男性", age: 30, text: `別チームを応援している会社の人とそれぞれのホーム現地で観戦する仲になった！` },
+            { gender: "男性", age: 26, text: `父親と抱き合って喜び、悔しがるものはなかなかないと思う。親から子へそして孫に情熱を受け継いでいける特別なものです。` },
+            { gender: "女性", age: 65, text: `Jリーグ開幕よりのサポーターです。開幕当初の成績不振、J2降格も見極めました。2006年のリーグ初優勝は思い出深い。リーグ優勝は1度だけですが、ACLは3度制覇しました。現在ダイヤモンドですが、新設予定のブラックダイヤモンドを目指し、今後もサポートしていきます！` },
+            { gender: "男性", age: 40, text: `百年構想リーグの開幕時点で1歳10か月になる息子がいます。息子は、生後5か月で埼スタにデビューしてから、現地観戦歴は20試合を超えました。昨年は、沖縄キャンプを見に行くため、生まれて初めて飛行機にも乗りました。浦和レッズのおかけで、色の名前も「あか」から覚えましたし、ぐずっているときでもチャントを歌うと泣き止むようになりました。最近では、エンブレムを見つけると嬉しそうに「レッズ！」と指をさし、腕を振りながら「We are Reds!」と声を出すことにもチャレンジし始めました。私と結婚してから浦和レッズにどっぷりはまってくれた妻も含めて、親子3人、浦和レッズが人生の指針になっています。` },
+            { gender: "男性", age: 50, text: `満員電車で足踏まれても、\n仕事でミスして怒られても、\n全く辛いとは思わない。\n負けることにくらべれば！` },
+            { gender: "女性", age: 68, text: `素晴らしいスタジアムに入るだけでワクワクしていた2004年から2007年は人生で一番心躍る試合観戦だった。それ以降常勝軍団とは程遠くなり帰り道は下を向いて次の日の仕事も辛い時もあった。\nでもやっぱり、こうして2026年を迎える事に人生に生きがいとエネルギーを与えてもらっていると感じているし浦和レッズに感謝しかない。山あり谷ありだけれど振り返れば最高の喜び、歓喜して泣いたことばかり蘇る。\n後人生何年生きるのか分からないけれど恐らく行けなくなるまで通い応援し続けると思う。\nありがとう浦和レッズ！` },
+            { gender: "女性", age: 47, text: `私は主人と付き合って、初めてサッカーを見に行きました。主人は1992年から浦和レッズ一筋の人です。\n最初はルールもわからず、サポーターの応援ばかり見ていた私ですが、結婚し息子が生まれ、3人で埼スタに通うことが増えました。埼玉ではなく、東京町田市からです。\nそれが2017年9月。ACLで川崎にリードされていた試合を埼スタで見ていました。そしたらひっくり返してしまって勝ち抜き、結果ACL優勝を埼スタで見届けることができました。\nあの川崎戦で一気に私は浦和レッズが好きになり、応援にも熱が入り、家の中は浦和1色です。町田市産まれ町田市在住ですが、浦和レッズが大好きです。\n負けると不貞腐れる私はまだサッカーのことはよくわからないけど、浦和レッズを後押ししたい。選手やスタッフ、サポーターのみなさんと世界制覇の夢を見たい。歳をとっても主人とずっと一緒に町田から埼スタに通いたいと思います。\nなんなら老後は埼玉移住も良いかもしれませんね。` },
+            { gender: "男性", age: 29, text: `　小学生だった2007年6月。自宅で印刷した乗り換え案内の紙を握りしめながら、父と共に成田の自宅から国立競技場に向かいました。初めてのサッカー観戦。小野伸二のゴールで2-0の勝利。その時の声援が。感動が。今も私が埼玉スタジアムに通う理由です。\n　そのまま大学を卒業し、社会人になった2019年8月。当時気になってた同期を誘い、埼玉スタジアムへ。スタジアムまでの道のりでは浦和レッズの魅力をたくさん伝えながら歩いたのを覚えています。結果は残念ながら1-2で敗戦。私の背中を押すようなきっかけは何もなかったものの、その日の帰りに告白し、今の妻と付き合った記念日になりました。\n　結婚を経て、いつの間にか妻もシーズンチケットを購入し、父との思い出だったサッカー観戦は、新しい家族の思い出に形を変えました。\n　2023年6月。妻のお腹の中には赤ちゃんを授かっていました。強風の中向かったACL決勝。満員の埼玉スタジアムにお腹の赤ちゃんも興奮し、たくさん動いて応援しているように感じました。そこで手に入れた3度目のACL優勝。目の前で繰り広げられた優勝セレモニーは、娘が生まれる前の妻と2人の素晴らしい思い出です。\n　2023年9月。出産予定日を1週間超過し「今日も生まれないかな」と妻と話しながら病院で試合を見ていたところ、突然の陣痛。吸引分娩になるなど心配もありながら無事に娘と会えた日。妻と娘をたくさん抱きしめ、喜びを噛み締めました。\n　そして娘が2歳になった2025年。「旗が欲しいの！」とおねだりがあり、旗を買い与え、「着せたい！！」と夫婦で盛り上がりユニフォームを買い与え、、、と週末は家族3人で浦和レッズの時間を過ごしています。保育園の運動会も「これで出るの！」と浦和レッズのユニフォームを着て、参加していました。\n　私の人生にはいつも浦和レッズがあります。　それは妻と付き合った日、娘が生まれた日。そして父に感動をもらった日など特別な日も含まれます。\n　2007年。父と共に乗り換え案内の紙を握りしめながら国立競技場に向かっていた少年は、今では妻と娘と毎回のように埼玉スタジアムに向かう父親になりました。さらに職場と埼玉スタジアムの中間地点に自宅を購入し、埼玉県民となりました。\n　私の環境や立場は大きく変わりましたが、浦和レッズへの愛は変わりません。We are reds!これからも私の人生には浦和レッズが必要です。\n　2026年になった今、妻のお腹にはまた新しい命を授かっています。出産予定日は６月。百年構想リーグのセカンドレグと同時期。この私にとってもJリーグにとっても特別な年に「浦和レッズの優勝」を見たいと強く願います。` },
+            { gender: "女性", age: 64, text: `浦和レッズは昨年旅立った母の楽しみでした。\nＪリーグが始まってすぐの頃から近くの駒場に集まるサポーターの皆さんと一緒にレッズの後押しをして来ました。\n母と二人でホームは勿論、時にはアウェーに出かけ沢山の方々と出会いました。その方々に年老いても暖かくスタジアムで迎えていただくのを楽しみにして来ました。\nこれからは私一人になりますが、母の心と共にレッズの後押しをして行きたいと思います。\n母と沢山の方々に出会わせてくれたレッズに感謝しています。` },
+            { gender: "女性", age: 37, text: `「父親と21年越しのタオマフ交換」\n小学生の頃のある休日、父親にサッカー観戦へ連れて行ってもらいました。\n初めての浦和レッズに大興奮した私に父親はマフラータオルを買ってくれました。\n\n時が経ち社会人になり父親との繋がりは希薄に、\nしかし父親に買ってもらった色褪せてきたタオマフを持って今でも週末に浦和レッズの試合へ行きます。\n仕事が憂鬱な時も週末にはサッカーがある、仲間がいるそれだけで救われる！\nそんな世界を教えてくれた父に感謝はするものの、一緒にでかける機会はなかなか作れず。\n\nそれがつい数年前、浦和レッズのアジアチャンピオンがかかった試合\nここぞとばかりに思い切って父を誘ってみたところ「行きたい」と！\n私は大喜びでチケットと「ある物」を用意しました。タオルマフラーです。\n\n私が父にプレゼントする番がやっと来た！と嬉しくてたまらなかったです。\n父はタオマフを凄く喜んでくれました。\n新古2つのタオルマフラーを持って珍しく2ショット写真も撮りました。\nサッカーが続いていたからこそ出来た父親への恩返しです。\nありがとうＪリーグ\n\n感謝のタオルマフラーはプレゼントできましたが、言葉ではまだ感謝を伝えられていません。\n次に父とサッカー観戦をする時には「ありがとう」を伝えたい。\nまだまだ続いてくださいＪリーグ` },
+            { gender: "男性", age: 47, text: `ずっと浦和レッズファンでしたが、なかなか観戦出来ず、テレビで観てる４年前でしたが、職場の部下に誘われて埼スタに行ってからは、サポーターの熱気に興奮し、選手のプレーを生でみて感動し、年前からシーズンチケットをずっと買い続けています。2026シーズンも購入済です。浦和レッズなしでは仕事やプライベートが充実しませんでした。浦和レッズありがとうございます。` },
+            { gender: "男性", age: 19, text: `趣味に没頭し、日常生活の一つになった。試合の日が来る嬉しさを知った。いつの日か浦和レッズの事しか考えてなく、試合結果が生活に影響する。浦和レッズと出会いサッカーの楽しさ、応援する楽しさ、負けた時の悔しさ、優勝した時の嬉しさを味わえた。サッカーを通じて、新しい趣味にも出会えた。` },
+            { gender: "女性", age: 52, text: `お腹の中にいる時からサポーターの息子と、ホーム試合だけでなくアウェー遠征で観光もしてサッカーと旅行を楽しんでます！` },
+            { gender: "女性", age: 62, text: `埼スタで仲間に会いたい！レッズを応援したい！の思いが、抗がん剤治療を乗り切らせてくれた\n好きなチームを応援できるのは、元気で長生きしなくちゃいけない理由` },
+            { gender: "男性", age: 64, text: `遠征の度に美味しいものをたくさん食べれた、アメリカにも行けた` },
+            { gender: "男性", age: 46, text: `駒場の立ち見席で偶然隣になり、同じ雑誌を読んでいたところから意気投合\n浦和の試合はもちろんのこと、海外でのサッカー観戦にも一緒に行く中になりました\n。\nまたオフシーズンには同じ趣味で旅行へ行くなど、年齢は離れていてもかけがえのない友人ができた。\nこれも浦和レッズのおかげです。` },
+            { gender: "女性", age: 26, text: `浦和レッズが好きになり今ではシーズンチケットを所有しています。\n近年では遠征にも行くようになり今まで行ったことのない地域にも行くきっかけを与えてくださり感謝しています。` },
+            { gender: "女性", age: 52, text: `家族旅行をあまりしたがらない主人でしたが、私は子供を色んな所に連れていきたかった。\nそこでアウェイゲームを理由に子供と色んな都道府県に行きました。\nもつ煮や牛タン、美味しい海鮮丼などはスタグルが殆どでしたが本気の応援もかなり子供にとっては魅力的な様子でした。\nそんな子供がある時一言\n試合だけではなく、もう少し観光したかったね\n\nそうだね、またいつか時間に余裕ができる年齢になったら、観光しながらアウェイ参戦にいきましょう。` },
+            { gender: "男性", age: 4, text: `会社の福利厚生で利用していますが、今までJリーグを見たことない従業員が気が付いたら浦和レッズとJリーグにはまっていて、先着順の予約にしているのですが、日によっては抽選になったりと、ビジネスクラブに入会して良かったと感じています。` },
+            { gender: "男性", age: 50, text: `レッズで、ゴール裏で繋がり、レッズを共に後押しする仲間との出会いが、人生を豊かにしてくれました！\n勝利には共に喜び、敗戦には共に涙を流す、良い仲間達です。` },
+            { gender: "女性", age: 73, text: `浦和レッズがここにあって良かった。\n\n2013年11月の宮城スタジアムへのアウェイ応援で始まった夫婦2人旅。軽自動車ワゴンＲでのドライブ旅が　現在　70歳を2人ともに過ぎた日々の穏やかな核になっていると本当に思う。\n\n2025年5月のデンカビッグスワンスタジアムまでの13年間に札幌、山形、仙台、鹿島、新潟、横浜、東京、甲府、清水、磐田、名古屋、ガンバ、セレッソ、徳島、鳥取、福岡、…とレッズとともに周ることが出来た。スタジアムによっては何回も行くことが出来たなぁ。\n\nレッズの応援での楽しみは　まづ、スタジアムへ向かう高速道路でレッズのステッカーを付けた車に　追い越されて行くところから。\n試合後は宿泊ホテルとか観光場所とか飲食店でレッズユニのサポに、遭遇する時。\n仲間がいる嬉しさ。最高ですね。\n\nそして、試合観戦の前後数日間の各地での観光地巡り。\n本当に日本各地を堪能。\nTVや新聞での各地の話題に、夫婦2人で[行った！行った！]と喜びあえる嬉しさは、本当に浦和レッズがあったからです。\n\n浦和レッズあリがとう！\n\n今年はプレーオフのアウェイ試合場所にとっても期待してます。` },
+            { gender: "男性", age: 57, text: `浦和レッズを応援することによって日本各地のスタジアムへ行く事になり、自分自身の世界が広がった。` },
+            { gender: "男性", age: 52, text: `浦和レッズを通じて夫婦の共通の趣味になり埼スタへ車で向かうドライブも楽しみになり会話も増えて宝物のような存在が浦和レッズです。` },
+            { gender: "男性", age: 57, text: `ちょっとずれているかもしれませんが\n\n駒場スタジアムで名前が呼ばれた\n\nまだホームが駒場スタジアムだった頃、ハーフタイムに朝井夏海さんだったと思うのですが、浦和からお越しの大野浩司さま至急ご自宅にご連絡下さいみたいなアナウンスが流れ一緒に行った知人や周りのシーチケ仲間から、呼ばれてるよ、とか言われいじられたのを思い出しました。\n\n私の母が会社から電話が来たのでわざわざ駒場スタジアムに電話をしたそうです。\n今はそのようなことはないですが、当時はそのようなこともしてくれたんですね。` },
+            { gender: "男性", age: 24, text: `他人に誇れるぐらい自分のアイデンティティになった` },
+            { gender: "男性", age: 58, text: `埼玉スタジアムで出会った仲間たちとは一生の宝物！試合前日、試合当日協力して助け合ったりしていい仲間が増えた！これからも素晴らしい仲間をつくりたい！` },
+            { gender: "男性", age: 34, text: `レッズと出会ったことでフットボールの楽しさに触れ、競技そのものだけではなく各国のフットボール文化に触れる機会が増えた事により、世界中にフットボール仲間が出来た事。\n様々な国にレッズと共に出かけられた事も貴重な思い出です。` },
+            { gender: "女性", age: 56, text: `浦和レッズがあってよかった\n夫と知り合い結婚できました\nスタジアムでは別居ですが（私は指定席、夫は自由席）\n結婚して17年目、毎試合仲良くスタジアムに通ってます` },
+            { gender: "男性", age: 57, text: `職場でレッズサポのキャラクターが定着したおかげで、試合があった週末には他チームのサポと朝から盛り上がっています！` },
+            { gender: "男性", age: 22, text: `両親が浦和レッズサポで毎週連れてって貰っていて浦和レッズのおかげでサッカーをはじめて楽しいことが増えたし観戦仲間が増えたりといろんな応援仲間が増えて楽しい。埼スタを見ると試合に早く行きたい、シーズン始まってほしいとずっと思うようになった` },
+            { gender: "男性", age: 68, text: `スタジアム観戦を通じて新たな掲示板の立ち上げに協力でき、サポ仲間が増えた。また、オフ会を通じて新たなサポ仲間に出会えた。これらから人の輪が広がった。` },
+            { gender: "女性", age: 65, text: `平日の夜にスタジアムに駆けつけ、手が真っ赤になるほど手拍子をして選手と共に闘ったACL\n大人になってからこんなに熱くなれることがあるなんて…。浦和レッズがあって本当によかった！スタジアム観戦が生活の一部、夫婦の会話の手助けにもなっています。` },
+            { gender: "男性", age: 64, text: `何度一緒にレッズ戦を観に行こうと誘っても、ずっと「行かない」と言っていた母。ダメ元で誘った母79歳の時、突然「行く」との返事。当日は晴天の中、0-0の引き分けでしたが、終わったあと「楽しかった！本当は前から行きたいと思ってたんだけど、のめり込みそうだから断っていたのよ。でも、これからは行きたいね。」笑顔で話す母に、「今度は得点取って勝つよ！」と次の試合を楽しみにしていた私。しかし、その夢は叶わず、母はその後ほどなく他界しました。それでもあの時の母の笑顔の写った写真は、宝物。今でもいつも一緒に観戦していると感じています。だから、レッズのゴールを、勝利を、たくさん見せてください。そこに母の笑顔が見えるから…。` },
+            { gender: "男性", age: 61, text: `浦和レッズと言う名の船に乗ってかけがえのない仲間たちと出会えたこと。` },
+            { gender: "男性", age: 9, text: `不登校であった息子と、二人で埼スタに毎試合通いだしました。息子は、フラッグキッズをやらせてもらえるほど大成長！今は楽しく学校に通ってます！ハートフルにも参加させていただいてます！家族みんなで熱くサポートしてます！\nWE ARE REDS!` },
+            { gender: "男性", age: 65, text: `私は重い病気で2022年春から2023年2月末まで入院しました。しかしレッズのシーズンチケットを更新し2023のACL決勝参戦を目標に必死の治療とリハビリをしました。その結果ACLの決勝に参戦でき、その後もレッズの試合に参戦続けるべくリハビリを続けています。レッズの存在がなければ途中で挫けていたかもしれません。レッズの存在はは私の生きるエネルギーです。` },
+            { gender: "男性", age: 66, text: `ある時から友人や家族が一緒に行かれなくなって、一人でスタジアムに行くようになっていた。そんな時にたまたまスタジアムで話をした人が、自分よりもずっと熱いサポーターを沢山紹介してくれた。彼らと一緒に応援したり、スタジアム外でも飲んで語り合ったりしているうちに、いつの間にか自分のレッズ愛のレベルは何段も引き上げられている事に気付いた。彼らは年齢や職業などもバラバラだが、今では掛け替えのない最高の仲間、友人達である。そしてレッズや彼らと触れ合う事によって自分のモノクロっぽい人生がよりカラフルなものになった。スタジアムに行けば、誰にでも何時でもそんな素敵な出会いが待っている。` },
+            { gender: "男性", age: 50, text: `小学生の子供がサッカーをやっているがJr.と試合する、セレクションを受けるというかけがえのないエンタメコンテンツを楽しめている` }
+        ];
 
-  </main>
+        // =========================================
+        // ロジック部分
+        // =========================================
+        let currentMode = 'grid'; 
+        let shuffledDeck = [];    
+        let currentDeckIndex = 0; 
 
-  <!-- Settings / Maintenance Modal -->
-  <div id="settings-modal" class="hidden" style="position:fixed; top:0; left:0; width:100vw; height:100dvh; background:rgba(0,0,0,0.5); z-index:999; display:flex; justify-content:center; align-items:center;">
-    <div style="background:var(--bg-surface); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h2 style="margin:0; font-size:16px;">設定・メンテナンス</h2>
-        <button id="btn-close-settings" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--text-muted);">✕</button>
-      </div>
-      <div style="margin-bottom:24px;">
-        <label style="display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer;">
-          <input type="checkbox" id="toggle-auto-sync" checked>
-          自動同期を有効にする
-        </label>
-        <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">※オフにすると手動同期(🔄)のみになります</p>
-      </div>
-      <div style="border-top:1px solid var(--border-color); padding-top:16px; display:flex; flex-direction:column; gap:12px;">
-        <p style="font-size:12px; font-weight:bold; color:var(--danger-color); margin:0;">危険な操作 (データ削除)</p>
-        <button id="btn-clear-ui" class="action-btn" style="border-color:var(--danger-color); color:var(--danger-color);">画面の表示をクリア</button>
-        <button id="btn-clear-local" class="action-btn" style="border-color:var(--danger-color); color:var(--danger-color);">ローカルデータを完全消去</button>
-        <button id="btn-clear-gas" class="action-btn" style="background:var(--danger-color); color:white; border:none;">クラウド(GAS)のデータを初期化</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="undo-snackbar">
-    <span id="undo-message" style="font-size:13px;">削除しました</span>
-    <button id="btn-undo">元に戻す</button>
-  </div>
-
-  <script>
-    /**
-     * Zero-Latency Logger - PWA JavaScript Logic
-     */
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyMkNvgGRdZUR-OPSD_fnC41xz9rWZFpV9vUvVqvJMela8qBrp-9antY3XORssnaevu/exec';
-
-    // PWA Service Worker Registration
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then(reg => {
-          console.log('ServiceWorker registered:', reg.scope);
-        }).catch(err => console.log('ServiceWorker registration failed:', err));
-      });
-    }
-
-    let isAutoSyncEnabled = true;
-    let state = {
-      currentDateStr: '',
-      logs: {},
-      todos: [],
-      collapsedHours: {}
-    };
-    let isDirty = false;
-    let syncTimer = null;
-    let lastDeleted = null;
-
-    function migrateData(logs) {
-      const newLogs = {};
-      for (const date in logs) {
-        newLogs[date] = {};
-        for (const hour in logs[date]) {
-          const content = logs[date][hour];
-          if (typeof content === 'string') {
-            newLogs[date][hour] = content.split('\n').filter(t => t.trim()).map(text => ({
-              id: 'mig_' + Math.random().toString(36).substr(2, 9),
-              text: text.replace(/^-\s*/, ''), 
-              depth: 0, 
-              updatedAt: Date.now(),
-              deletedAt: null
-            }));
-          } else { 
-            newLogs[date][hour] = content.map(item => ({
-              ...item,
-              id: item.id || 'mig_' + Math.random().toString(36).substr(2, 9),
-              deletedAt: item.deletedAt || null
-            }));
-          }
-        }
-      }
-      return newLogs;
-    }
-
-    function mergeLogs(localLogs, cloudLogs) {
-      const merged = JSON.parse(JSON.stringify(localLogs));
-      Object.keys(cloudLogs).forEach(date => {
-        if (!merged[date]) merged[date] = {};
-        Object.keys(cloudLogs[date]).forEach(hour => {
-          const cloudEntries = cloudLogs[date][hour] || [];
-          const localEntries = merged[date][hour] || [];
-          cloudEntries.forEach(cloudEntry => {
-            if (!cloudEntry.id) return;
-            const localMatchIndex = localEntries.findIndex(l => l.id === cloudEntry.id);
-            if (localMatchIndex !== -1) {
-              if (cloudEntry.updatedAt > localEntries[localMatchIndex].updatedAt) {
-                localEntries[localMatchIndex] = cloudEntry;
-              }
+        // アコーディオン開閉
+        function toggleAccordion() {
+            const content = document.getElementById('accordion-content');
+            const btn = document.getElementById('accordion-btn');
+            
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                btn.textContent = '募集背景を読む ▼';
             } else {
-              localEntries.push(cloudEntry);
+                content.classList.add('open');
+                btn.textContent = '募集背景を閉じる ▲';
             }
-          });
-          merged[date][hour] = localEntries.sort((a, b) => a.updatedAt - b.updatedAt);
-        });
-      });
-      return merged;
-    }
-
-    function mergeTodos(localTodos, cloudTodos) {
-      const merged = JSON.parse(JSON.stringify(localTodos));
-      merged.forEach(todo => {
-        if (todo.deletedAt === undefined) todo.deletedAt = null;
-        if (!todo.id) todo.id = 'todo_mig_' + Math.random().toString(36).substr(2, 9);
-      });
-      cloudTodos.forEach(cloudTodo => {
-        if (!cloudTodo.id) return;
-        const localMatchIndex = merged.findIndex(l => l.id === cloudTodo.id);
-        if (localMatchIndex !== -1) {
-          if (cloudTodo.updatedAt > merged[localMatchIndex].updatedAt) {
-            merged[localMatchIndex] = cloudTodo;
-          }
-        } else {
-          merged.push(cloudTodo);
         }
-      });
-      return merged;
-    }
 
-    let isFetching = false;
-    async function fetchCloudData() {
-      if (isFetching || !isAutoSyncEnabled) return;
-      const syncStatus = document.getElementById('sync-status');
-      if (syncStatus) syncStatus.textContent = "クラウド受信中...";
-      isFetching = true;
+        // モード切替
+        function switchMode(mode) {
+            if (currentMode === mode) return;
+            currentMode = mode;
 
-      try {
-        const response = await fetch(GAS_WEB_APP_URL);
-        const data = await response.json();
+            const gridView = document.getElementById('grid-view');
+            const randomView = document.getElementById('random-view');
+            const actionArea = document.getElementById('action-area');
+            const tabGrid = document.getElementById('tab-grid');
+            const tabRandom = document.getElementById('tab-random');
 
-        if (data && data.status === 'success' && data.data) {
-          const cloudLogs = migrateData(data.data.logs || {});
-          const cloudTodos = data.data.todos || [];
-          state.logs = mergeLogs(state.logs, cloudLogs);
-          state.todos = mergeTodos(state.todos, cloudTodos);
-          
-          localStorage.setItem('appState', JSON.stringify(state));
-          refreshUI();
-          if (syncStatus) syncStatus.textContent = "同期完了";
-        } else {
-          if (syncStatus) syncStatus.textContent = "受信エラー";
-        }
-      } catch (error) {
-        console.error("Fetch error:", error);
-        if (syncStatus) syncStatus.textContent = "オフライン";
-      } finally {
-        isFetching = false;
-      }
-    }
-
-    function parseMarkdown(text) {
-      if (!text) return '';
-      let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-      return escaped.replace(/\*\*(.*?)\*\*/g, '<span class="md-red-bold">$1</span>');
-    }
-
-    async function initData() {
-      const now = new Date();
-      state.currentDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-      try {
-        const stored = localStorage.getItem('appState');
-        if (stored) {
-          const loaded = JSON.parse(stored);
-          state.logs = loaded.logs || {};
-          state.todos = loaded.todos || [];
-          state.collapsedHours = loaded.collapsedHours || {};
-        }
-      } catch (e) { console.error("Load error", e); }
-      refreshUI();
-      fetchCloudData();
-    }
-
-    function scheduleSave() {
-      isDirty = true;
-      document.getElementById('sync-status').textContent = "変更あり";
-      if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(saveData, 2000);
-    }
-
-    async function saveData() {
-      if (!isDirty) return;
-      try {
-        localStorage.setItem('appState', JSON.stringify(state));
-        isDirty = false;
-        document.getElementById('sync-status').textContent = "同期済み";
-        
-        if (GAS_WEB_APP_URL && !GAS_WEB_APP_URL.includes('YOUR_GAS')) {
-          fetch(GAS_WEB_APP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'SYNC_FULL_STATE', data: { logs: state.logs, todos: state.todos } })
-          }).catch(e => console.error(e));
-        }
-      } catch (e) {
-        console.error("Save error", e);
-        document.getElementById('sync-status').textContent = "エラー";
-      }
-    }
-
-    function moveDate(offset) {
-      const d = new Date(state.currentDateStr);
-      d.setDate(d.getDate() + offset);
-      state.currentDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      refreshUI();
-    }
-
-    function getTodayStr() {
-      const now = new Date();
-      return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    }
-
-    function renderCalendar() {
-      const container = document.getElementById('calendar-ribbon');
-      if (!container) return;
-      container.innerHTML = '';
-      const baseDate = new Date(state.currentDateStr);
-      for (let i = -3; i <= 3; i++) {
-        const d = new Date(baseDate);
-        d.setDate(d.getDate() + i);
-        const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const div = document.createElement('div');
-        div.className = `date-item ${i === 0 ? 'active' : ''}`;
-        div.onclick = () => { state.currentDateStr = dStr; refreshUI(); };
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        div.innerHTML = `<div class="date-label">${dayNames[d.getDay()]}</div><div class="date-num">${d.getDate()}</div>`;
-        container.appendChild(div);
-      }
-    }
-
-    function renderHourSelector() {
-      const container = document.getElementById('hour-selector');
-      if (!container) return;
-      container.innerHTML = '';
-      for (let i = 0; i < 24; i++) {
-        const chip = document.createElement('div');
-        chip.className = 'hour-chip';
-        chip.textContent = `${i}:00`;
-        chip.onclick = () => {
-          document.getElementById('hour-selector').classList.add('hidden');
-          const text = prompt(`${i}:00 の記録を追加:`);
-          if (text) {
-            if (!state.logs[state.currentDateStr]) state.logs[state.currentDateStr] = {};
-            if (!state.logs[state.currentDateStr][i]) state.logs[state.currentDateStr][i] = [];
-            state.logs[state.currentDateStr][i].push({ id: 'log_' + Date.now().toString(), text: text, depth: 0, updatedAt: Date.now(), deletedAt: null });
-            scheduleSave();
-            refreshUI();
-          }
-        };
-        container.appendChild(chip);
-      }
-    }
-
-    function renderDailyLog() {
-      const container = document.getElementById('log-content');
-      if (!container) return;
-      container.innerHTML = '';
-      
-      const todayLogs = state.logs[state.currentDateStr] || {};
-      const currentHour = new Date().getHours();
-      
-      for (let i = 0; i < 24; i++) {
-        const entries = (todayLogs[i] || []).filter(e => !e.deletedAt);
-        if (entries.length === 0 && i !== currentHour && state.currentDateStr === getTodayStr()) continue;
-        if (entries.length === 0 && state.currentDateStr !== getTodayStr()) continue;
-        
-        const itemDiv = document.createElement('div');
-        const isCollapsed = state.collapsedHours[`${state.currentDateStr}-${i}`];
-        itemDiv.className = `timeline-item ${isCollapsed ? 'collapsed' : ''}`;
-        itemDiv.innerHTML = `
-          <div class="timeline-dot"></div>
-          <div class="time-header" title="クリックで展開/折りたたみ">
-            <span class="toggle-icon">▼</span>
-            <span class="time-label">${i}:00</span>
-          </div>
-          <div class="time-body" id="time-body-${i}"></div>
-        `;
-        
-        itemDiv.querySelector('.time-header').addEventListener('click', () => toggleHourCollapse(i));
-        container.appendChild(itemDiv);
-        const bodyDiv = itemDiv.querySelector(`#time-body-${i}`);
-        
-        entries.forEach(entry => {
-          const entryDiv = document.createElement('div');
-          entryDiv.className = 'entry-item';
-          entryDiv.innerHTML = `
-            <div class="entry-text">${parseMarkdown(entry.text)}</div>
-            <button class="action-icon-btn" title="TODOに追加">🔲</button>
-            <button class="delete-icon-btn" title="削除">×</button>
-          `;
-          entryDiv.querySelector('.entry-text').addEventListener('click', () => editEntry(i, entry.id));
-          entryDiv.querySelector('.action-icon-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const cleanText = entry.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
-            state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ' + cleanText, status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
-            scheduleSave();
-            refreshUI();
-          });
-          entryDiv.querySelector('.delete-icon-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteLogEntry(i, entry.id);
-          });
-          bodyDiv.appendChild(entryDiv);
-        });
-        
-        if (i === currentHour && state.currentDateStr === getTodayStr()) {
-           const input = document.createElement('textarea');
-           input.className = 'input-pad';
-           input.placeholder = 'ここに入力... (Enterで保存, Shift+Enterで改行)';
-           input.onkeydown = (e) => handleLogPadKeyDown(e, i, input);
-           bodyDiv.appendChild(input);
-
-           const palette = document.createElement('div');
-           palette.className = 'inline-emoji-palette';
-           const emojis = [
-             { icon: '🟢', title: '開始/進行中' }, { icon: '📞', title: '電話/会議' }, { icon: '🗣️', title: '相談/会話' },
-             { icon: '📧', title: 'メール/チャット' }, { icon: '🔥', title: '重要/トラブル' }, { icon: '💡', title: 'アイデア/ひらめき' },
-             { icon: '⏳', title: '待ち/保留' }, { icon: '💭', title: '思考/検討' }, { icon: '💤', title: '休憩/離席' },
-             { icon: '🙋', title: '質問/依頼' }, { icon: '🔲', title: 'TODO' }, { icon: '✅', title: '完了' }, { icon: '⏭️', title: 'スキップ/先送り' }
-           ];
-           emojis.forEach(item => {
-             const btn = document.createElement('button');
-             btn.className = 'mini-icon-btn'; btn.textContent = item.icon; btn.title = item.title;
-             palette.appendChild(btn);
-           });
-           bodyDiv.appendChild(palette);
-        }
-      }
-    }
-
-    function toggleHourCollapse(hour) {
-      const key = `${state.currentDateStr}-${hour}`;
-      state.collapsedHours[key] = !state.collapsedHours[key];
-      scheduleSave();
-      refreshUI();
-    }
-
-    function handleLogPadKeyDown(e, hour, inputElement) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const text = inputElement.value.trim();
-        if (text) {
-          if (!state.logs[state.currentDateStr]) state.logs[state.currentDateStr] = {};
-          if (!state.logs[state.currentDateStr][hour]) state.logs[state.currentDateStr][hour] = [];
-          state.logs[state.currentDateStr][hour].push({ id: 'log_' + Date.now().toString(), text: text, depth: 0, updatedAt: Date.now(), deletedAt: null });
-          inputElement.value = '';
-          scheduleSave();
-          refreshUI();
-        }
-      }
-    }
-
-    function editEntry(hour, id) {
-      const entry = state.logs[state.currentDateStr][hour].find(e => e.id === id);
-      if (!entry) return;
-      const newText = prompt("編集:", entry.text);
-      if (newText !== null) {
-        if (newText.trim() === '') {
-          entry.deletedAt = Date.now();
-          entry.updatedAt = Date.now();
-        } else {
-          entry.text = newText;
-          entry.updatedAt = Date.now();
-        }
-        scheduleSave();
-        refreshUI();
-      }
-    }
-
-    function toggleTodo(id) {
-      const todo = state.todos.find(t => t.id === id);
-      if (todo) {
-        todo.status = todo.status === 'DONE' ? 'ACTIVE' : 'DONE';
-        todo.updatedAt = Date.now();
-        scheduleSave();
-        refreshUI();
-      }
-    }
-
-    function deleteTodo(id) {
-      const todo = state.todos.find(t => t.id === id);
-      if (todo) {
-        lastDeleted = { type: 'todo', id: todo.id };
-        todo.deletedAt = Date.now();
-        todo.updatedAt = Date.now();
-        scheduleSave();
-        refreshUI();
-        showUndo("TODOを削除しました");
-      }
-    }
-
-    function deleteLogEntry(hour, id) {
-      const entry = state.logs[state.currentDateStr]?.[hour]?.find(e => e.id === id);
-      if (entry) {
-        lastDeleted = { type: 'log', date: state.currentDateStr, hour: hour, id: entry.id };
-        entry.deletedAt = Date.now();
-        entry.updatedAt = Date.now();
-        scheduleSave();
-        refreshUI();
-        showUndo("ログを削除しました");
-      }
-    }
-
-    function showUndo(msg) {
-      const bar = document.getElementById('undo-snackbar');
-      const msgEl = document.getElementById('undo-message');
-      if (bar && msgEl) {
-        msgEl.textContent = msg;
-        bar.classList.add('show');
-        setTimeout(() => bar.classList.remove('show'), 5000);
-      }
-    }
-
-    function updateTodoText(id, text) {
-      const todo = state.todos.find(t => t.id === id);
-      if (todo) {
-        const cleanText = text.trim();
-        if (todo.text === cleanText) { renderTodoList(); return; }
-        if (cleanText === '') {
-          todo.deletedAt = Date.now();
-          todo.updatedAt = Date.now();
-        } else {
-          todo.text = cleanText;
-          todo.updatedAt = Date.now();
-        }
-        scheduleSave();
-        refreshUI();
-      }
-    }
-
-    function handleTodoKeyDown(e, el, id, idx) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        el.blur();
-        setTimeout(() => {
-          const allTodos = document.querySelectorAll('#todo-content .todo-text');
-          if (idx + 1 < allTodos.length) allTodos[idx + 1].focus();
-          else document.getElementById('btn-add-todo')?.click();
-        }, 50);
-      }
-    }
-
-    function createTodoItemElement(todo, idx) {
-      const item = document.createElement('div');
-      item.className = `todo-item ${todo.status === 'DONE' ? 'done' : ''}`;
-      item.innerHTML = `
-        <input type="checkbox" class="todo-checkbox" ${todo.status === 'DONE' ? 'checked' : ''}>
-        <div class="todo-text" contenteditable="true" style="flex:1; outline:none;">${parseMarkdown(todo.text)}</div>
-        <button class="action-icon-btn" title="今の時間に記録">📝</button>
-        <button class="delete-icon-btn" title="削除">×</button>
-      `;
-
-      item.querySelector('.todo-checkbox').addEventListener('change', () => toggleTodo(todo.id));
-      const txt = item.querySelector('.todo-text');
-      txt.addEventListener('focus', () => { txt.innerText = todo.text; window.lastFocusedTarget = txt; });
-      txt.addEventListener('blur', () => updateTodoText(todo.id, txt.innerText));
-      txt.addEventListener('keydown', (e) => handleTodoKeyDown(e, txt, todo.id, idx));
-      
-      item.querySelector('.action-icon-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const currentHour = new Date().getHours();
-        const today = getTodayStr();
-        if (!state.logs[today]) state.logs[today] = {};
-        if (!state.logs[today][currentHour]) state.logs[today][currentHour] = [];
-        const cleanText = todo.text.replace(/^[🟢📞🗣️📧🔥💡⏳💭💤🙋🔲✅⏭️📦]\s*/, '');
-        state.logs[today][currentHour].push({ id: 'log_' + Date.now().toString(), text: '✅ ' + cleanText, depth: 0, updatedAt: Date.now(), deletedAt: null });
-        scheduleSave();
-        refreshUI();
-      });
-      
-      item.querySelector('.delete-icon-btn').addEventListener('click', () => deleteTodo(todo.id));
-      return item;
-    }
-
-    function renderTodoList() {
-      const container = document.getElementById('todo-content');
-      const logTodoContainer = document.getElementById('log-todo-content'); 
-      if (container) container.innerHTML = '';
-      if (logTodoContainer) logTodoContainer.innerHTML = '';
-      
-      const activeTodos = state.todos.filter(t => !t.deletedAt);
-      activeTodos.forEach((todo, idx) => {
-        if (container) container.appendChild(createTodoItemElement(todo, idx));
-        if (logTodoContainer) logTodoContainer.appendChild(createTodoItemElement(todo, idx));
-      });
-    }
-
-    function renderArchive() {
-      const container = document.getElementById('archive-content');
-      if (!container) return;
-      container.innerHTML = '';
-      let archiveItems = [];
-      Object.keys(state.logs).forEach(date => {
-        Object.keys(state.logs[date]).forEach(hour => {
-          state.logs[date][hour].forEach(entry => {
-            if (!entry.deletedAt && entry.text.startsWith('📦')) {
-              archiveItems.push({ date: date, hour: hour, text: entry.text, updatedAt: entry.updatedAt });
+            if (mode === 'grid') {
+                gridView.style.display = 'block';
+                randomView.style.display = 'none';
+                actionArea.style.display = 'none';
+                tabGrid.classList.add('active');
+                tabRandom.classList.remove('active');
+            } else {
+                gridView.style.display = 'none';
+                randomView.style.display = 'block';
+                actionArea.style.display = 'block';
+                tabRandom.classList.add('active');
+                tabGrid.classList.remove('active');
+                
+                if (randomView.innerHTML === '') {
+                    shuffleAndDisplayRandom();
+                }
             }
-          });
-        });
-      });
-      archiveItems.sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date);
-        return parseInt(b.hour) - parseInt(a.hour);
-      });
-
-      if (archiveItems.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted); font-size:12px;">アーカイブされた記録はありません<br>行頭に「📦」をつけるとここに表示されます</div>';
-        return;
-      }
-      archiveItems.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'archive-item';
-        div.innerHTML = `<div class="archive-date">${item.date} ${String(item.hour).padStart(2, '0')}:00</div><div class="archive-text">${parseMarkdown(item.text)}</div>`;
-        container.appendChild(div);
-      });
-    }
-
-    function refreshUI() {
-      document.getElementById('sync-status').textContent = isDirty ? "変更あり" : "同期済み";
-      renderCalendar();
-      renderHourSelector();
-      renderDailyLog();
-      renderTodoList();
-      renderArchive();
-    }
-
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      const targetBtn = document.getElementById('tab-btn-' + tabId);
-      const targetContent = document.getElementById('tab-' + tabId);
-      if (targetBtn) targetBtn.classList.add('active');
-      if (targetContent) targetContent.classList.add('active');
-      if (tabId === 'archive') renderArchive();
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-      await initData();
-
-      const btnOpenDb = document.getElementById('btn-open-db');
-      if (btnOpenDb) {
-        btnOpenDb.addEventListener('click', () => {
-          window.open('https://docs.google.com/spreadsheets/d/1kCO0bYro9EPm6e67Q3XNt7GQjFlkbszjx-i779oYV3E/edit?gid=1407902297#gid=1407902297', '_blank');
-        });
-      }
-
-      const btnAddTodo = document.getElementById('btn-add-todo');
-      if (btnAddTodo) {
-        btnAddTodo.onclick = () => {
-          state.todos.unshift({ id: 'todo_' + Date.now(), text: '🔲 ', status: 'ACTIVE', depth: 0, updatedAt: Date.now(), deletedAt: null });
-          refreshUI();
-          isDirty = true;
-          scheduleSave();
-          setTimeout(() => document.querySelector('.todo-text')?.focus(), 50);
-        };
-      }
-
-      const btnUndo = document.getElementById('btn-undo');
-      if (btnUndo) {
-        btnUndo.onclick = () => {
-          if (!lastDeleted) return;
-          if (lastDeleted.type === 'todo') {
-            const todo = state.todos.find(t => t.id === lastDeleted.id);
-            if (todo) { todo.deletedAt = null; todo.updatedAt = Date.now(); lastDeleted = null; renderTodoList(); scheduleSave(); document.getElementById('undo-snackbar')?.classList.remove('show'); }
-          } else if (lastDeleted.type === 'log') {
-            const entry = state.logs[lastDeleted.date]?.[lastDeleted.hour]?.find(e => e.id === lastDeleted.id);
-            if (entry) { entry.deletedAt = null; entry.updatedAt = Date.now(); lastDeleted = null; renderDailyLog(); scheduleSave(); document.getElementById('undo-snackbar')?.classList.remove('show'); }
-          }
-        };
-      }
-
-      document.addEventListener('mousedown', (e) => {
-        if (e.target && e.target.classList.contains('mini-icon-btn')) {
-          e.preventDefault(); 
-          const emoji = e.target.textContent;
-          const palette = e.target.parentElement;
-          const targetInput = palette.previousElementSibling;
-          if (targetInput && targetInput.tagName === 'TEXTAREA') {
-            const text = targetInput.value;
-            targetInput.value = emoji + text;
-            targetInput.focus();
-            targetInput.selectionStart = emoji.length;
-            targetInput.selectionEnd = emoji.length;
-          }
         }
-      });
 
-      const btnManualSync = document.getElementById('btn-manual-sync');
-      if (btnManualSync) {
-        btnManualSync.onclick = () => {
-          btnManualSync.style.transform = 'rotate(360deg)';
-          fetchCloudData().finally(() => setTimeout(() => btnManualSync.style.transform = 'rotate(0deg)', 300));
-        };
-      }
+        // =========================================
+        // Step 3: カード生成ロジックの改修（色とIDの適用）
+        // =========================================
+        function createCardElement(episode) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            // --- IDに基づいた背景色の適用 ---
+            // ID（1始まり）から1を引いた値を色数で割った余りをインデックスとする
+            const colorIndex = (episode.id - 1) % pastelColors.length;
+            card.style.backgroundColor = pastelColors[colorIndex];
+            
+            // -1.5度から1.5度の間でランダムな傾き
+            const randomRotation = (Math.random() * 3) - 1.5;
+            card.style.transform = `rotate(${randomRotation}deg)`;
 
-      // メンテナンスモーダルのイベントリスナー
-      const settingsModal = document.getElementById('settings-modal');
-      const btnSettings = document.getElementById('btn-settings');
-      const btnCloseSettings = document.getElementById('btn-close-settings');
-      const toggleAutoSync = document.getElementById('toggle-auto-sync');
+            // --- IDバッジの追加 ---
+            const idDiv = document.createElement('div');
+            idDiv.className = 'card-id';
+            idDiv.textContent = `No.${episode.id}`;
+            card.appendChild(idDiv);
 
-      if (btnSettings && settingsModal) btnSettings.addEventListener('click', () => { settingsModal.classList.remove('hidden'); settingsModal.style.display = 'flex'; });
-      if (btnCloseSettings && settingsModal) btnCloseSettings.addEventListener('click', () => { settingsModal.style.display = 'none'; settingsModal.classList.add('hidden'); });
-      if (toggleAutoSync) toggleAutoSync.addEventListener('change', (e) => {
-        isAutoSyncEnabled = e.target.checked;
-        document.getElementById('sync-status').textContent = isAutoSyncEnabled ? "同期待機中" : "自動同期オフ";
-      });
+            const textDiv = document.createElement('div');
+            textDiv.className = 'card-text';
+            textDiv.textContent = episode.text;
 
-      // タブ切り替えリスナー
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const tabId = e.target.id.replace('tab-btn-', '');
-          switchTab(tabId);
-        });
-      });
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'card-meta';
+            metaDiv.textContent = `${episode.gender}・${episode.age}歳`;
 
-      // 危険な操作イベント
-      const btnClearUI = document.getElementById('btn-clear-ui');
-      if (btnClearUI) {
-        btnClearUI.addEventListener('click', () => {
-          if (confirm("画面の表示をクリアしますか？（未保存のデータは見えなくなります）")) {
-            clearUIData();
-            settingsModal.style.display = 'none';
-          }
-        });
-      }
+            card.appendChild(textDiv);
+            card.appendChild(metaDiv);
 
-      const btnClearLocal = document.getElementById('btn-clear-local');
-      if (btnClearLocal) {
-        btnClearLocal.addEventListener('click', async () => {
-          if (confirm("ローカルストレージを完全に消去しますか？（同期されていないデータは失われます）")) {
-            await clearLocalStorageData();
-            clearUIData();
-            settingsModal.style.display = 'none';
-            alert("ローカルデータを消去しました。");
-          }
-        });
-      }
+            return card;
+        }
 
-      const btnClearGas = document.getElementById('btn-clear-gas');
-      if (btnClearGas) {
-        btnClearGas.addEventListener('click', async () => {
-          if (confirm("【警告】クラウド(GAS)上のすべてのデータを初期化します。本当によろしいですか？")) {
-            await clearGASData();
-            alert("クラウドデータの初期化リクエストを送信しました。");
-            settingsModal.style.display = 'none';
-          }
-        });
-      }
+        // Fisher-Yates シャッフル
+        function shuffleDeck(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
 
-      setInterval(() => {
-        if (!isDirty && isAutoSyncEnabled) fetchCloudData();
-      }, 30000);
-    });
+        // --- 全エピソードをシャッフルして一覧表示 ---
+        function shuffleAndDisplayRandom() {
+            const randomView = document.getElementById('random-view');
+            
+            // 一度中身をリセット
+            randomView.innerHTML = '';
+            
+            // 全エピソードをシャッフル
+            shuffledDeck = shuffleDeck(episodes);
+            
+            // シャッフルされた順番でカードを生成・追加
+            shuffledDeck.forEach(episode => {
+                const cardElement = createCardElement(episode);
+                
+                // フワッと表示させるアニメーション（任意）
+                cardElement.style.opacity = '0';
+                cardElement.style.transform += ' translateY(20px)';
+                cardElement.style.transition = 'all 0.4s ease-out';
+                
+                randomView.appendChild(cardElement);
 
-    // --- メンテナンス・削除用関数群 ---
-    function clearUIData() {
-      state = { currentDateStr: getTodayStr(), logs: {}, todos: [], collapsedHours: {} };
-      refreshUI();
-      console.log("UI data cleared.");
-    }
+                // Reflowを強制
+                void cardElement.offsetWidth;
+                
+                cardElement.style.opacity = '1';
+                const currentRotation = cardElement.style.transform.match(/rotate\([^)]+\)/)[0];
+                cardElement.style.transform = `${currentRotation} translateY(0)`;
+            });
+        }
 
-    async function clearLocalStorageData() {
-      try {
-        localStorage.removeItem('appState');
-        console.log("Local storage cleared.");
-      } catch (e) {
-        console.error("Failed to clear local storage:", e);
-      }
-    }
+        // 初期化
+        function init() {
+            // =========================================
+            // Step 2-2: 各エピソードにID（連番）を自動付与
+            // =========================================
+            episodes.forEach((episode, index) => {
+                episode.id = index + 1; // 1からの連番
+            });
 
-    async function clearGASData() {
-      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('YOUR_GAS')) return;
-      try {
-        await fetch(GAS_WEB_APP_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'CLEAR_GAS_DATA' })
-        });
-        console.log("GAS data clear request sent.");
-      } catch (error) {
-        console.error("Failed to clear GAS data:", error);
-      }
-    }
-  </script>
+            const gridView = document.getElementById('grid-view');
+            episodes.forEach(episode => {
+                const cardElement = createCardElement(episode);
+                gridView.appendChild(cardElement);
+            });
+
+            shuffledDeck = shuffleDeck(episodes);
+        }
+
+        window.onload = init;
+    </script>
 </body>
 </html>
